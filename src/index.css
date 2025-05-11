@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #6366F1;
+  --primary-dark: #4F46E5;
+  --accent: #EC4899;
+  --accent-dark: #DB2777;
+  --background: #0F172A;
+  --card: #1E293B;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+}
+
+body {
+  @apply bg-gray-900 text-white font-sans overflow-x-hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--background);
+}
+
+body::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+  border-radius: 20px;
+  border: 2px solid var(--background);
+}
+
+@layer components {
+  .movie-card {
+    @apply relative overflow-hidden rounded-md transition-all duration-300;
+  }
+  
+  .movie-card:hover {
+    @apply transform scale-105 z-10 shadow-xl;
+  }
+  
+  .movie-card-overlay {
+    @apply absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 transition-opacity duration-300;
+  }
+  
+  .movie-card:hover .movie-card-overlay {
+    @apply opacity-100;
+  }
+  
+  .carousel-container {
+    @apply relative py-2 overflow-hidden;
+  }
+  
+  .carousel {
+    @apply flex gap-4 px-4 py-4 overflow-x-scroll scrollbar-hide;
+    scroll-behavior: smooth;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .carousel::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .carousel-button {
+    @apply absolute z-10 top-1/2 -translate-y-1/2 w-10 h-20 bg-black/50 hover:bg-black/70 transition-colors flex items-center justify-center rounded-md;
+  }
+  
+  .carousel-button-left {
+    @apply left-0 rounded-r-md;
+  }
+  
+  .carousel-button-right {
+    @apply right-0 rounded-l-md;
+  }
+  
+  .custom-video-player {
+    @apply rounded-md overflow-hidden;
+  }
+  
+  .custom-video-controls {
+    @apply absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-opacity duration-300;
+  }
+  
+  .custom-video-player:hover .custom-video-controls {
+    @apply opacity-100;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.hero-gradient {
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 1) 100%);
+}
+
+.legal-notice {
+  @apply text-gray-400 text-xs leading-relaxed;
+}
