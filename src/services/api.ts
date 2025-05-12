@@ -7,117 +7,91 @@ const YOUTUBE_API_KEYS = [
   import.meta.env.VITE_YOUTUBE_API_KEY_1,
   import.meta.env.VITE_YOUTUBE_API_KEY_2,
   import.meta.env.VITE_YOUTUBE_API_KEY_3,
-  'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
-  'AIzaSyC_2QM86c1ZDwrFq5TrDHYw91wuHAAXtu0',
-  'AIzaSyDxrMr6aBkVCb91-Kp5ltsumOIbzK6bzN0',
-  'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
-  'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
-  'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
-  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
+  // … your extra hard-coded keys …
 ].filter(Boolean) as string[];
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 6;
 const RETRY_DELAY = 300; // ms
 const CACHE_DURATION = 1000 * 60 * 60; // 1h
 
+// Simple in-memory cache
 const cache = new Map<string, { data: any; ts: number }>();
-
 function getFromCache(key: string): any | null {
-  const entry = cache.get(key);
-  if (!entry || Date.now() - entry.ts > CACHE_DURATION) {
+  const e = cache.get(key);
+  if (!e || Date.now() - e.ts > CACHE_DURATION) {
     cache.delete(key);
     return null;
   }
-  return entry.data;
+  return e.data;
 }
-
-function setInCache(key: string, data: any): void {
+function setInCache(key: string, data: any) {
   cache.set(key, { data, ts: Date.now() });
 }
-
-function normKey(s: string): string {
+function normKey(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+/** Rotate through keys, testing each with a cheap “test” query */
 async function getYoutubeApiKey(): Promise<string> {
   const start = currentApiKeyIndex;
-  for (let i = 0; i < MAX_RETRIES; i++) {
+  for (let i = 0; i < YOUTUBE_API_KEYS.length; i++) {
     const key = YOUTUBE_API_KEYS[currentApiKeyIndex];
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=id&q=test&type=video&maxResults=1&key=${key}`
+      const resp = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?` +
+        new URLSearchParams({ part: 'id', q: 'a', type: 'video', maxResults: '1', key })
       );
-      const json: any = await res.json();
+      const json = await resp.json();
       if (!json.error) return key;
-    } catch {}
+    } catch { /* key bad */ }
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
     if (currentApiKeyIndex === start) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAY));
+      await new Promise(r => setTimeout(r, RETRY_DELAY));
     }
   }
-  throw new Error('All YouTube API keys exhausted or quota exceeded.');
+  throw new Error('YouTube API keys exhausted');
 }
 
-async function extractMovieTitle(rawTitle: string): Promise<string> {
-  // 1. Clean up junk
-  let s = rawTitle
-    .replace(/\s*\[[^\]]*]|\s*\([^)]*\)/g, '')    // remove [tags] and (tags)
-    .replace(/\b(19|20)\d{2}\b/g, '')             // remove years
+/** Fast, synchronous title extractor */
+function extractMovieTitle(raw: string): string {
+  let s = raw
+    .replace(/\s*\[[^\]]*]|\s*\([^)]*\)/g, '')
+    .replace(/\b(19|20)\d{2}\b/g, '')
     .replace(/\b(HD|4K|1080p|720p|BRRip|WEBRip|BluRay|DVDRip)\b/gi, '')
     .replace(/\b(Official Trailer|Trailer|Teaser|Full Movie)\b/gi, '')
     .trim();
 
-  // 2. Title‐case heuristic
-  const tcMatches = Array.from(
-    s.matchAll(/\b([A-Z][a-z']+(?:\s+[A-Z][a-z']+)+)\b/g)
-  ).map(m => m[1]);
-  let candidate: string;
-  if (tcMatches.length) {
-    candidate = tcMatches.reduce((a, b) => (a.length >= b.length ? a : b));
-  } else {
-    // fallback split
-    const parts = s.split(/[-–—|:•]/).map(p => p.trim()).filter(Boolean);
-    candidate = parts.length
-      ? parts.reduce((a, b) => (a.length >= b.length ? a : b))
-      : s;
+  // Title-Case chunks
+  const tc = Array.from(s.matchAll(/\b([A-Z][a-z']+(?:\s+[A-Z][a-z']+)+)\b/g))
+    .map(m => m[1]);
+  if (tc.length) {
+    return tc.reduce((a, b) => a.length >= b.length ? a : b).trim();
   }
-  candidate = candidate.trim();
-
-  // 3. OMDb confirmation
-  try {
-    const cacheKey = `confirmTitle:${normKey(candidate)}`;
-    const cached = getFromCache(cacheKey);
-    if (cached) return cached;
-
-    const url = `https://www.omdbapi.com/?t=${encodeURIComponent(candidate)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
-    const resp = await fetch(url);
-    const json: any = await resp.json();
-    if (json.Response === 'True' && json.Title) {
-      setInCache(cacheKey, json.Title);
-      return json.Title;
-    }
-  } catch {
-    // ignore failures, fall back
+  // Fallback: split on separators
+  const parts = s.split(/[-–—|:•]/).map(p => p.trim()).filter(Boolean);
+  if (parts.length) {
+    return parts.reduce((a, b) => a.length >= b.length ? a : b).trim();
   }
-
-  return candidate;
+  return s;
 }
 
-function convertToMin(duration: string): number {
-  const m = duration.match(/PT(\d+H)?(\d+M)?/);
-  const hours = m && m[1] ? parseInt(m[1]) : 0;
-  const mins = m && m[2] ? parseInt(m[2]) : 0;
-  return hours * 60 + mins;
+/** Convert ISO8601 YouTube durations to minutes */
+function convertToMin(d: string): number {
+  const m = d.match(/PT(\d+H)?(\d+M)?/);
+  const h = m?.[1] ? parseInt(m[1]) : 0;
+  const mm = m?.[2] ? parseInt(m[2]) : 0;
+  return h * 60 + mm;
 }
 
-async function fallbackSearchOMDb(searchTerm: string): Promise<ApiResponse<Movie[]>> {
+/** If YouTube fails, fallback to OMDb “search by title” */
+async function fallbackSearchOMDb(q: string): Promise<ApiResponse<Movie[]>> {
   try {
-    const url = `https://www.omdbapi.com/?s=${encodeURIComponent(searchTerm)}&type=movie&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+    const url = `https://www.omdbapi.com/?s=${encodeURIComponent(q)}&type=movie&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
     const resp = await fetch(url);
-    const json: any = await resp.json();
-    if (json.Response === 'True' && Array.isArray(json.Search)) {
-      const movies: Movie[] = json.Search.map((m: any) => ({
+    const js = await resp.json();
+    if (js.Response === 'True' && Array.isArray(js.Search)) {
+      const arr = js.Search.map((m: any): Movie => ({
         id: m.imdbID,
         videoId: '',
         title: m.Title,
@@ -131,151 +105,145 @@ async function fallbackSearchOMDb(searchTerm: string): Promise<ApiResponse<Movie
         imdbID: m.imdbID,
         type: m.Type,
       }));
-      return { data: movies, isLoading: false };
+      return { data: arr, isLoading: false };
     }
   } catch {}
   return { data: [], isLoading: false };
 }
 
 export async function enrichMovieWithMetadata(movie: Movie): Promise<Movie> {
-  const cacheKey = `enrich:${normKey(movie.id)}`;
-  const cached = getFromCache(cacheKey);
-  if (cached) return cached;
+  const key = `enrich:${normKey(movie.id)}`;
+  const c = getFromCache(key);
+  if (c) return c;
 
   try {
     const url = `https://www.omdbapi.com/?t=${encodeURIComponent(movie.title)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
     const resp = await fetch(url);
-    const omdb = await resp.json();
-    if (omdb.Response !== 'True') return movie;
-
-    const enriched: Movie = {
-      ...movie,
-      title: omdb.Title || movie.title,
-      year: omdb.Year,
-      rated: omdb.Rated,
-      released: omdb.Released,
-      runtime: omdb.Runtime,
-      genre: omdb.Genre,
-      director: omdb.Director,
-      writer: omdb.Writer,
-      actors: omdb.Actors,
-      plot: omdb.Plot,
-      language: omdb.Language,
-      country: omdb.Country,
-      awards: omdb.Awards,
-      poster: omdb.Poster !== 'N/A' ? omdb.Poster : movie.thumbnail,
-      ratings: omdb.Ratings,
-      imdbRating: omdb.imdbRating,
-      imdbID: omdb.imdbID,
-      type: omdb.Type,
-    };
-
-    setInCache(cacheKey, enriched);
-    return enriched;
+    const js = await resp.json();
+    if (js.Response === 'True') {
+      const enriched: Movie = {
+        ...movie,
+        title: js.Title || movie.title,
+        year: js.Year,
+        rated: js.Rated,
+        released: js.Released,
+        runtime: js.Runtime,
+        genre: js.Genre,
+        director: js.Director,
+        writer: js.Writer,
+        actors: js.Actors,
+        plot: js.Plot,
+        language: js.Language,
+        country: js.Country,
+        awards: js.Awards,
+        poster: js.Poster !== 'N/A' ? js.Poster : movie.thumbnail,
+        ratings: js.Ratings,
+        imdbRating: js.imdbRating,
+        imdbID: js.imdbID,
+        type: js.Type,
+      };
+      setInCache(key, enriched);
+      return enriched;
+    }
   } catch {
-    return movie;
+    /* ignore */
   }
+  return movie;
 }
 
 export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movie[]>> {
   const cacheKey = `search:${normKey(searchTerm)}`;
-  const cached = getFromCache(cacheKey);
-  if (cached) return cached;
+  const c = getFromCache(cacheKey);
+  if (c) return c;
 
-  const queries = [
-    `${searchTerm}`,             // try the raw title first
-    `${searchTerm} full movie`,  // then fall back to “full movie”
-  ];
+  // Try raw term first, then “full movie”
+  const queries = [searchTerm, `${searchTerm} full movie`];
+  let srItems: any[] = [];
+  let apiKey = '';
 
-  let srJson: any = null;
-  let apiKey: string = '';
-  let retries = 0;
-
-  // Try each query in turn
   for (const q of queries) {
-    retries = 0;
-    while (retries < MAX_RETRIES) {
+    let tries = 0;
+    while (tries < MAX_RETRIES) {
       try {
         apiKey = await getYoutubeApiKey();
-        const sr = await fetch(
+        const resp = await fetch(
           `https://www.googleapis.com/youtube/v3/search?` +
           new URLSearchParams({
-            part:       'snippet',
-            type:       'video',
-            q:          q,
+            part: 'snippet',
+            type: 'video',
+            q,
             maxResults: '8',
-            key:        apiKey,
+            key: apiKey
           })
         );
-        srJson = await sr.json();
-        if (!srJson.error && Array.isArray(srJson.items) && srJson.items.length) {
-          break; // got results for this query
+        const js = await resp.json();
+        if (!js.error && Array.isArray(js.items) && js.items.length) {
+          srItems = js.items;
+          break;
         }
-        throw new Error('empty');
-      } catch {
-        retries++;
-        currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-        await new Promise(r => setTimeout(r, RETRY_DELAY));
-      }
+      } catch {}
+      tries++;
+      currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
+      await new Promise(r => setTimeout(r, RETRY_DELAY));
     }
-    if (srJson && srJson.items && srJson.items.length) {
-      break;
-    }
+    if (srItems.length) break;
   }
 
-  // Fallback to OMDb if no YouTube results
-  if (!srJson || !srJson.items || srJson.items.length === 0) {
-    const fallback = await fallbackSearchOMDb(searchTerm);
-    setInCache(cacheKey, fallback);
-    return fallback;
+  // If no YouTube results, fallback
+  if (!srItems.length) {
+    const fb = await fallbackSearchOMDb(searchTerm);
+    setInCache(cacheKey, fb);
+    return fb;
   }
 
-  const videoIds = srJson.items.map((i: any) => i.id.videoId).filter(Boolean).join(',');
-  if (!videoIds) {
-    const fallback = await fallbackSearchOMDb(searchTerm);
-    setInCache(cacheKey, fallback);
-    return fallback;
+  // Fetch details
+  const ids = srItems.map(i => i.id.videoId).filter(Boolean).join(',');
+  if (!ids) {
+    const fb = await fallbackSearchOMDb(searchTerm);
+    setInCache(cacheKey, fb);
+    return fb;
   }
 
-  const dr = await fetch(
+  const detailRes = await fetch(
     `https://www.googleapis.com/youtube/v3/videos?` +
     new URLSearchParams({
-      part:           'contentDetails,statistics,snippet',
-      id:             videoIds,
-      key:            apiKey,
+      part: 'contentDetails,statistics,snippet',
+      id:   ids,
+      key:  apiKey
     })
   );
-  const drJson: any = await dr.json();
-  if (drJson.error || !Array.isArray(drJson.items) || drJson.items.length === 0) {
-    const fallback = await fallbackSearchOMDb(searchTerm);
-    setInCache(cacheKey, fallback);
-    return fallback;
+  const detailJs = await detailRes.json();
+  if (detailJs.error || !Array.isArray(detailJs.items) || !detailJs.items.length) {
+    const fb = await fallbackSearchOMDb(searchTerm);
+    setInCache(cacheKey, fb);
+    return fb;
   }
 
-  const limit = pLimit(6);
+  // Build Movie[]
+  const limiter = pLimit(6);
   const movies = await Promise.all(
-    drJson.items
+    detailJs.items
       .filter((v: any) => {
-        const mins    = convertToMin(v.contentDetails.duration);
-        const titleLc = v.snippet.title.toLowerCase();
-        return mins >= 60 && !/trailer|teaser/.test(titleLc);
+        const mins = convertToMin(v.contentDetails.duration);
+        const t   = v.snippet.title.toLowerCase();
+        return mins >= 60 && !/trailer|teaser/.test(t);
       })
       .map((v: any) =>
-        limit(async () => {
-          const title = await extractMovieTitle(v.snippet.title);
+        limiter(async () => {
+          const title = extractMovieTitle(v.snippet.title);
           return enrichMovieWithMetadata({
-            id:                 v.id,
-            videoId:            v.id,
+            id: v.id,
+            videoId: v.id,
             title,
             thumbnail:
               v.snippet.thumbnails.maxres?.url ||
               v.snippet.thumbnails.high?.url   ||
               v.snippet.thumbnails.default?.url,
-            channelTitle:       v.snippet.channelTitle,
-            publishedAt:        v.snippet.publishedAt,
-            duration:           v.contentDetails.duration,
-            durationInMinutes:  convertToMin(v.contentDetails.duration),
-            viewCount:          v.statistics.viewCount || '0',
+            channelTitle:      v.snippet.channelTitle,
+            publishedAt:       v.snippet.publishedAt,
+            duration:          v.contentDetails.duration,
+            durationInMinutes: convertToMin(v.contentDetails.duration),
+            viewCount:         v.statistics.viewCount || '0',
           });
         })
       )
@@ -286,20 +254,15 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
   return result;
 }
 
-export const getTrendingMovies = (): Promise<ApiResponse<Movie[]>> =>
-  searchMovies('Bollywood');
-
-export const getMoviesByActor = (actor: string): Promise<ApiResponse<Movie[]>> =>
-  searchMovies(actor);
-
-export const getMoviesByGenre = (genre: string): Promise<ApiResponse<Movie[]>> =>
-  searchMovies(genre);
+export const getTrendingMovies = () => searchMovies('Bollywood');
+export const getMoviesByActor = (a: string) => searchMovies(a);
+export const getMoviesByGenre = (g: string) => searchMovies(g);
 
 export async function advancedSearch(params: SearchParams): Promise<ApiResponse<Movie[]>> {
   let q = params.query;
   [params.actor, params.genre, params.language, params.year]
     .filter(Boolean)
-    .forEach(x => (q += ' ' + x));
+    .forEach(x => q += ' ' + x);
   const res = await searchMovies(q);
   if (res.data && params.duration) {
     res.data = res.data.filter(m => m.durationInMinutes >= params.duration);
