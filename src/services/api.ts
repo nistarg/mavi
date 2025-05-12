@@ -1,7 +1,6 @@
 import { Movie, ApiResponse, SearchParams } from '../types';
 import Fuse from 'fuse.js';
 
-// YouTube API keys (environment + hardcoded fallbacks)
 const YOUTUBE_API_KEYS = [
   import.meta.env.VITE_YOUTUBE_API_KEY_1,
   import.meta.env.VITE_YOUTUBE_API_KEY_2,
@@ -20,30 +19,24 @@ const MAX_RETRIES = 10;
 const RETRY_DELAY = 1000;
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
-// Memory cache for API responses
-type CacheItem = { data: any; timestamp: number };
-const cache = new Map<string, CacheItem>();
-
-const normalizeCacheKey = (key: string) =>
-  key.toLowerCase().replace(/[^a-z0-9]/gi, '');
+const cache = new Map<string, { data: any; timestamp: number }>();
 
 const getFromCache = (key: string) => {
-  const norm = normalizeCacheKey(key);
-  const item = cache.get(norm);
-  if (!item) return null;
-  if (Date.now() - item.timestamp > CACHE_DURATION) {
-    cache.delete(norm);
+  const item = cache.get(key);
+  if (!item || Date.now() - item.timestamp > CACHE_DURATION) {
+    cache.delete(key);
     return null;
   }
   return item.data;
 };
 
 const setInCache = (key: string, data: any) => {
-  const norm = normalizeCacheKey(key);
-  cache.set(norm, { data, timestamp: Date.now() });
+  cache.set(key, { data, timestamp: Date.now() });
 };
 
-// Rotate through API keys and validate
+const normalizeCacheKey = (key: string) =>
+  key.toLowerCase().replace(/[^a-z0-9]/gi, '');
+
 const getYoutubeApiKey = async (): Promise<string> => {
   const initialIndex = currentApiKeyIndex;
   let attempts = 0;
@@ -58,15 +51,15 @@ const getYoutubeApiKey = async (): Promise<string> => {
     } catch {}
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
     attempts++;
-    if (currentApiKeyIndex === initialIndex) await new Promise((r) => setTimeout(r, RETRY_DELAY));
+    if (currentApiKeyIndex === initialIndex) {
+      await new Promise(res => setTimeout(res, RETRY_DELAY));
+    }
   }
   throw new Error('All YouTube API keys are invalid or quota exceeded.');
 };
 
-// Cleanup YouTube titles
-title => remove noise
-const cleanYoutubeTitle = (title: string): string =>
-  title
+const cleanYoutubeTitle = (title: string): string => {
+  return title
     .replace(/\([^)]*\)/g, '')
     .replace(/\[[^\]]*\]/g, '')
     .replace(/full movie/gi, '')
@@ -74,64 +67,78 @@ const cleanYoutubeTitle = (title: string): string =>
     .replace(/official trailer|trailer|teaser|clip|behind the scenes/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+};
 
-// Better title extraction using description
 const extractBetterTitle = (snippet: any): string => {
-  const title = snippet.title || '';
-  const description = snippet.description || '';
-  const candidates: string[] = [];
+  const title = snippet?.title || '';
+  const description = snippet?.description || '';
+  const possibleTitles = [];
 
-  // Quoted phrases
-  const quoted = description.match(/"([^"]+)"/g) || [];
-  quoted.forEach((q) => candidates.push(q.replace(/"/g, '')));
+  const quoted = description.match(/"([^"]+)"/g);
+  if (quoted) {
+    possibleTitles.push(...quoted.map(q => q.replace(/"/g, '')));
+  }
 
-  // Capitalized sequences
-  const caps = description.match(/\b([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,4})\b/g);
-  if (caps) candidates.push(...caps);
+  const capsMatch = description.match(/\b([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,4})\b/g);
+  if (capsMatch) {
+    possibleTitles.push(...capsMatch);
+  }
 
-  // Cleaned title fallback
-  candidates.push(cleanYoutubeTitle(title));
+  possibleTitles.push(cleanYoutubeTitle(title));
 
-  return candidates[0] || title;
+  return possibleTitles[0] || title;
 };
 
-// OMDb metadata fetch
-const getOMDbDetails = async (title: string): Promise<any> => {
-  const url = `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.Response === 'True' ? data : null;
-};
-
-// TMDB fallback
 const getTMDBDetails = async (title: string): Promise<any> => {
   const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(title)}&api_key=${import.meta.env.VITE_TMDB_API_KEY}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.results?.[0] || null;
+  const response = await fetch(url);
+  const data = await response.json();
+  return data?.results?.[0] || null;
 };
 
-export const getMovieDetails = async (rawTitle: string): Promise<any> => {
-  const cacheKey = `movieDetails:${rawTitle}`;
+export const getMovieDetails = async (title: string): Promise<any> => {
+  const cacheKey = `omdb:${normalizeCacheKey(title)}`;
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
-  const title = cleanYoutubeTitle(rawTitle);
-  let metadata = await getOMDbDetails(title);
-  if (!metadata) metadata = await getTMDBDetails(title);
+  try {
+    const cleanTitle = cleanYoutubeTitle(title);
+    const url = `https://www.omdbapi.com/?t=${encodeURIComponent(cleanTitle)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
 
-  // Retry with shorter title
-  if (!metadata) {
-    const short = title.split(' ').slice(0, 3).join(' ');
-    metadata = (await getOMDbDetails(short)) || (await getTMDBDetails(short));
+    if (data.Response === 'True') {
+      setInCache(cacheKey, data);
+      return data;
+    }
+
+    const shortTitle = cleanTitle.split(' ').slice(0, 3).join(' ');
+    if (shortTitle !== cleanTitle) {
+      const shortUrl = `https://www.omdbapi.com/?t=${encodeURIComponent(shortTitle)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+      const shortResponse = await fetch(shortUrl);
+      const shortData = await shortResponse.json();
+
+      if (shortData.Response === 'True') {
+        setInCache(cacheKey, shortData);
+        return shortData;
+      }
+    }
+
+    // Try TMDB as a fallback
+    const tmdb = await getTMDBDetails(cleanTitle);
+    if (tmdb) {
+      setInCache(cacheKey, tmdb);
+      return tmdb;
+    }
+
+    return null;
+  } catch {
+    return null;
   }
-
-  setInCache(cacheKey, metadata);
-  return metadata;
 };
 
 export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movie[]>> => {
-  const cacheKey = `search:${searchTerm}`;
+  const cacheKey = `search:${normalizeCacheKey(searchTerm)}`;
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
@@ -141,104 +148,114 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
   while (retries < MAX_RETRIES) {
     try {
       const apiKey = await getYoutubeApiKey();
-      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(
-        searchTerm + ' full movie'
-      )}&type=video&videoDuration=long&key=${apiKey}`;
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(searchTerm + ' full movie')}&type=video&videoDuration=long&key=${apiKey}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
 
-      const videoIds = data.items.map((i: any) => i.id.videoId).filter(Boolean).join(',');
+      if (data.error) {
+        lastError = data.error.message;
+        throw new Error(data.error.message);
+      }
+
+      const videoIds = data.items.map((item: any) => item.id.videoId).filter(Boolean).join(',');
       if (!videoIds) return { data: [], isLoading: false };
 
-      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`;
-      const detRes = await fetch(detailsUrl);
-      const detData = await detRes.json();
-      if (detData.error) throw new Error(detData.error.message);
+      const videoDetailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`;
+      const detailsResponse = await fetch(videoDetailsUrl);
+      const detailsData = await detailsResponse.json();
 
-      // Optional Fuse.js setup for future use
-      const fuse = new Fuse([], { threshold: 0.3 });
+      if (detailsData.error) {
+        lastError = detailsData.error.message;
+        throw new Error(detailsData.error.message);
+      }
 
-      const movies: Movie[] = await Promise.all(
-        detData.items
-          .filter((it: any) => {
-            const dur = convertDurationToMinutes(it.contentDetails.duration);
-            const t = (it.snippet.title || '').toLowerCase();
-            return dur >= 60 && !/trailer|teaser|clip|behind/.test(t);
-          })
-          .map(async (it: any) => {
-            const betterTitle = extractBetterTitle(it.snippet);
-            const base: Movie = {
-              id: it.id,
-              videoId: it.id,
-              title: it.snippet.title || 'Unknown Title',
-              thumbnail:
-                it.snippet.thumbnails.maxres?.url ||
-                it.snippet.thumbnails.high?.url ||
-                it.snippet.thumbnails.default.url,
-              channelTitle: it.snippet.channelTitle,
-              publishedAt: it.snippet.publishedAt,
-              duration: it.contentDetails.duration,
-              durationInMinutes: convertDurationToMinutes(it.contentDetails.duration),
-              viewCount: it.statistics.viewCount || '0',
-            };
-            return enrichMovieWithMetadata({ ...base, title: betterTitle });
-          })
-      );
+      const enrichmentPromises: Promise<Movie>[] = [];
 
-      const result = { data: await Promise.all(movies), isLoading: false };
+      for (const item of detailsData.items || []) {
+        const durationInMinutes = convertDurationToMinutes(item.contentDetails?.duration);
+        const rawTitle = extractBetterTitle(item.snippet);
+
+        if (
+          durationInMinutes >= 60 &&
+          !rawTitle.toLowerCase().includes('trailer') &&
+          !rawTitle.toLowerCase().includes('teaser')
+        ) {
+          const movie: Movie = {
+            id: item.id,
+            videoId: item.id,
+            title: rawTitle,
+            thumbnail: item.snippet?.thumbnails?.maxres?.url ||
+              item.snippet?.thumbnails?.high?.url ||
+              item.snippet?.thumbnails?.default?.url,
+            channelTitle: item.snippet?.channelTitle || 'Unknown Channel',
+            publishedAt: item.snippet?.publishedAt,
+            duration: item.contentDetails?.duration,
+            durationInMinutes,
+            viewCount: item.statistics?.viewCount || '0',
+          };
+
+          enrichmentPromises.push(enrichMovieWithMetadata(movie));
+        }
+      }
+
+      const enrichedMovies = await Promise.all(enrichmentPromises);
+      const result = { data: enrichedMovies, isLoading: false };
       setInCache(cacheKey, result);
       return result;
-    } catch (err: any) {
-      lastError = err.message;
+    } catch (error) {
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-      if (retries >= MAX_RETRIES) return { error: lastError, isLoading: false };
-      await new Promise((r) => setTimeout(r, RETRY_DELAY));
+
+      if (retries === MAX_RETRIES) {
+        console.error(`Search failed after ${MAX_RETRIES} retries. Last error: ${lastError}`);
+        return { error: lastError || 'Search failed.', isLoading: false };
+      }
+
+      await new Promise(res => setTimeout(res, RETRY_DELAY));
     }
   }
 
-  return { error: lastError || 'Search failed', isLoading: false };
+  return { error: lastError || 'Search failed.', isLoading: false };
 };
 
 const convertDurationToMinutes = (duration: string): number => {
-  const match = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(duration) || [];
-  const hours = parseInt(match[1] || '0');
-  const mins = parseInt(match[2] || '0');
-  const secs = parseInt(match[3] || '0');
-  return hours * 60 + mins + Math.floor(secs / 60);
+  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  if (!match) return 0;
+  const hours = match[1] ? parseInt(match[1]) : 0;
+  const minutes = match[2] ? parseInt(match[2]) : 0;
+  const seconds = match[3] ? parseInt(match[3]) : 0;
+  return hours * 60 + minutes + Math.floor(seconds / 60);
 };
 
 export const enrichMovieWithMetadata = async (movie: Movie): Promise<Movie> => {
-  const cacheKey = `enrich:${movie.id}`;
+  const cacheKey = `enrich:${normalizeCacheKey(movie.id)}`;
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
   try {
-    const omdb = await getOMDbDetails(movie.title);
-    const meta = omdb || (await getTMDBDetails(movie.title));
-    if (!meta) return movie;
+    const omdb = await getMovieDetails(movie.title);
+    if (!omdb) return movie;
 
-    const enriched: Movie = {
+    const enriched = {
       ...movie,
-      title: meta.Title || meta.title || movie.title,
-      year: meta.Year || meta.release_date?.split('-')[0],
-      rated: meta.Rated,
-      released: meta.Released || meta.release_date,
-      runtime: meta.Runtime,
-      genre: meta.Genre || meta.genres?.map((g: any) => g.name).join(', '),
-      director: meta.Director,
-      writer: meta.Writer,
-      actors: meta.Actors,
-      plot: meta.Plot || meta.overview,
-      language: meta.Language,
-      country: meta.Country,
-      awards: meta.Awards,
-      poster: meta.Poster !== 'N/A' ? meta.Poster : movie.thumbnail,
-      ratings: meta.Ratings,
-      imdbRating: meta.imdbRating,
-      imdbID: meta.imdbID || meta.id,
-      type: meta.Type || 'movie',
+      title: omdb.Title || movie.title,
+      year: omdb.Year,
+      rated: omdb.Rated,
+      released: omdb.Released,
+      runtime: omdb.Runtime,
+      genre: omdb.Genre,
+      director: omdb.Director,
+      writer: omdb.Writer,
+      actors: omdb.Actors,
+      plot: omdb.Plot,
+      language: omdb.Language,
+      country: omdb.Country,
+      awards: omdb.Awards,
+      poster: omdb.Poster !== 'N/A' ? omdb.Poster : movie.thumbnail,
+      ratings: omdb.Ratings,
+      imdbRating: omdb.imdbRating,
+      imdbID: omdb.imdbID,
+      type: omdb.Type,
     };
 
     setInCache(cacheKey, enriched);
@@ -258,30 +275,39 @@ export const getTrendingMovies = async (): Promise<ApiResponse<Movie[]>> => {
     'Akshay Kumar full movie'
   ];
 
-  for (const q of queries) {
-    const res = await searchMovies(q);
-    if (!res.error && res.data.length) return res;
+  for (const query of queries) {
+    const result = await searchMovies(query);
+    if (!result.error && result.data.length > 0) return result;
   }
 
-  for (const q of queries) {
-    const cached = getFromCache(`search:${q}`);
-    if (cached && cached.data.length) return cached;
+  for (const query of queries) {
+    const cached = getFromCache(`search:${normalizeCacheKey(query)}`);
+    if (cached && cached.data.length > 0) return cached;
   }
 
-  return { error: 'Unable to fetch trending movies', isLoading: false };
+  return {
+    error: 'Unable to fetch trending movies. Please try again later.',
+    isLoading: false
+  };
 };
 
-export const getMoviesByActor = (actor: string) => searchMovies(`${actor} full movie`);
-export const getMoviesByGenre = (genre: string) => searchMovies(`${genre} full movie`);
-export const advancedSearch = async (params: SearchParams) => {
+export const getMoviesByActor = async (actor: string): Promise<ApiResponse<Movie[]>> => {
+  return await searchMovies(`${actor} full movie`);
+};
+
+export const getMoviesByGenre = async (genre: string): Promise<ApiResponse<Movie[]>> => {
+  return await searchMovies(`${genre} Bollywood full movie`);
+};
+
+export const advancedSearch = async (params: SearchParams): Promise<ApiResponse<Movie[]>> => {
   let query = params.query;
   if (params.actor) query += ` ${params.actor}`;
   if (params.genre) query += ` ${params.genre}`;
   if (params.language) query += ` ${params.language}`;
   if (params.year) query += ` ${params.year}`;
-  const result = await searchMovies(query);
-  if (params.duration) {
-    result.data = result.data.filter(m => m.durationInMinutes >= params.duration!);
+  const results = await searchMovies(query);
+  if (results.data && params.duration) {
+    results.data = results.data.filter(movie => movie.durationInMinutes >= params.duration);
   }
-  return result;
+  return results;
 };
