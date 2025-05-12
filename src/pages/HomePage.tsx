@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import HeroSection from '../components/ui/HeroSection';
 import { Movie } from '../types';
 import { getTrendingMovies, enrichMovieWithMetadata } from '../services/api';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -22,36 +21,22 @@ const HomePage: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await getTrendingMovies();
-      
-      if (res.error) {
-        throw new Error(res.error);
-      }
-      
+      if (res.error) throw new Error(res.error);
+
       const movies = res.data || [];
-      if (movies.length === 0) {
-        throw new Error('No movies found. Please try again later.');
-      }
-      
+      if (movies.length === 0) throw new Error('No movies found. Please try again later.');
+
       const top = movies.slice(0, 4);
-      const enriched = await Promise.all(
-        top.map(movie => enrichMovieWithMetadata(movie))
-      );
+      const enriched = await Promise.all(top.map(movie => enrichMovieWithMetadata(movie)));
       setRecommendations(enriched);
-      setRetryCount(0); // Reset retry count on success
+      setRetryCount(0);
     } catch (err) {
-      console.error(err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
-      
-      // Implement retry logic
       if (retryCount < MAX_RETRIES) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.log(`Retrying fetch (${nextRetry}/${MAX_RETRIES}) in ${RETRY_DELAY / 1000} seconds...`);
-        
-        retryTimeoutRef.current = window.setTimeout(() => {
-          fetchRecs();
-        }, RETRY_DELAY);
+        retryTimeoutRef.current = window.setTimeout(() => fetchRecs(), RETRY_DELAY);
       }
     } finally {
       setLoading(false);
@@ -60,33 +45,24 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     fetchRecs();
-    
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-    };
+    return () => retryTimeoutRef.current && clearTimeout(retryTimeoutRef.current);
   }, []);
 
   useEffect(() => {
     if (!recommendations.length) return;
-    
     autoSlideRef.current = window.setInterval(() => {
       setCurrentIdx(prev => (prev + 1) % recommendations.length);
     }, SLIDE_INTERVAL);
-    
-    return () => {
-      if (autoSlideRef.current) clearInterval(autoSlideRef.current);
-    };
+    return () => autoSlideRef.current && clearInterval(autoSlideRef.current);
   }, [recommendations]);
 
   const prevSlide = () => {
-    if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    autoSlideRef.current && clearInterval(autoSlideRef.current);
     setCurrentIdx(prev => (prev - 1 + recommendations.length) % recommendations.length);
   };
 
   const nextSlide = () => {
-    if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    autoSlideRef.current && clearInterval(autoSlideRef.current);
     setCurrentIdx(prev => (prev + 1) % recommendations.length);
   };
 
@@ -98,7 +74,7 @@ const HomePage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -121,16 +97,34 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="relative bg-black pt-16 md:pt-0">
-      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden flex items-center justify-center">
+    <div className="relative bg-black">
+      {/* Hero Section */}
+      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
         {recommendations.map((movie, idx) => (
           <div
             key={movie.id || idx}
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ease-in-out
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out
               ${idx === currentIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           >
-            <div className="w-full h-full">
-              <HeroSection movie={movie} />
+            <div
+              className="w-full h-full bg-cover bg-center"
+              style={{
+                backgroundImage: `url(${movie.backdrop || movie.poster})`,
+              }}
+            >
+              <div className="bg-gradient-to-r from-black/80 via-transparent to-black absolute inset-0" />
+              <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16 max-w-2xl text-white z-10">
+                <h1 className="text-5xl md:text-7xl font-extrabold mb-4 drop-shadow-lg">{movie.title}</h1>
+                <p className="text-lg md:text-xl mb-6 line-clamp-3">{movie.description}</p>
+                <div className="flex gap-4">
+                  <button className="bg-white text-black font-semibold px-6 py-2 rounded hover:bg-gray-200 transition">
+                    ▶ Play
+                  </button>
+                  <button className="bg-gray-700/60 text-white font-semibold px-6 py-2 rounded hover:bg-gray-600 transition">
+                    ℹ More Info
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -147,6 +141,26 @@ const HomePage: React.FC = () => {
         >
           <ChevronRight className="w-8 h-8 md:w-10 md:h-10" />
         </button>
+      </div>
+
+      {/* Thumbnails Section */}
+      <div className="mt-[-100px] relative z-30 px-4 md:px-12 pb-16">
+        <h2 className="text-white text-2xl font-semibold mb-4">Series</h2>
+        <div className="flex overflow-x-auto space-x-4 scrollbar-hide">
+          {recommendations.map((movie, idx) => (
+            <div
+              key={`thumb-${movie.id || idx}`}
+              className="min-w-[150px] md:min-w-[200px] cursor-pointer hover:scale-105 transition"
+            >
+              <img
+                src={movie.poster || movie.backdrop}
+                alt={movie.title}
+                className="rounded-lg w-full h-auto object-cover"
+              />
+              <p className="mt-2 text-white text-sm md:text-base">{movie.title}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
