@@ -1,5 +1,3 @@
-// HomePage.tsx
-
 import React, { useEffect, useState, useRef } from 'react';
 import HeroSection from '../components/ui/HeroSection';
 import { Movie } from '../types';
@@ -59,15 +57,15 @@ const HomePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center text-white p-8">
           <h2 className="text-3xl font-semibold mb-2">Something went wrong</h2>
           <p>{error}</p>
@@ -77,8 +75,8 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="relative bg-black">
-      <div className="relative h-screen overflow-hidden flex items-center">
+    <div className="relative bg-black pt-16 md:pt-0">
+      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden flex items-center">
         {recommendations.map((movie, idx) => (
           <div
             key={movie.id || idx}
@@ -93,15 +91,15 @@ const HomePage: React.FC = () => {
 
         <button
           onClick={prevSlide}
-          className="absolute left-6 bottom-12 bg-black/40 p-3 rounded-full hover:bg-black/60 text-white transition"
+          className="absolute left-4 md:left-6 bottom-24 md:bottom-12 bg-black/40 p-2 md:p-3 rounded-full hover:bg-black/60 text-white transition z-20"
         >
-          <ChevronLeft size={32} />
+          <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
         </button>
         <button
           onClick={nextSlide}
-          className="absolute right-6 bottom-12 bg-black/40 p-3 rounded-full hover:bg-black/60 text-white transition"
+          className="absolute right-4 md:right-6 bottom-24 md:bottom-12 bg-black/40 p-2 md:p-3 rounded-full hover:bg-black/60 text-white transition z-20"
         >
-          <ChevronRight size={32} />
+          <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
         </button>
       </div>
     </div>
