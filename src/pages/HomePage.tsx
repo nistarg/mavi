@@ -98,7 +98,7 @@ const HomePage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -107,11 +107,11 @@ const HomePage: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-white">
         <div className="text-center p-8">
-          <h2 className="text-3xl font-semibold mb-2">Something went wrong</h2>
-          <p className="mb-4">{error}</p>
+          <h2 className="text-4xl font-semibold mb-4">Something went wrong</h2>
+          <p className="mb-6">{error}</p>
           <button
             onClick={handleRetry}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
+            className="px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition"
           >
             Try Again
           </button>
@@ -122,7 +122,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="relative bg-black pt-16 md:pt-0">
-      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden flex items-center">
+      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden flex items-center justify-center">
         {recommendations.map((movie, idx) => (
           <div
             key={movie.id || idx}
@@ -137,15 +137,15 @@ const HomePage: React.FC = () => {
 
         <button
           onClick={prevSlide}
-          className="absolute left-4 md:left-6 bottom-24 md:bottom-12 bg-black/40 p-2 md:p-3 rounded-full hover:bg-black/60 text-white transition z-20"
+          className="absolute left-4 md:left-6 bottom-24 md:bottom-12 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
         >
-          <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+          <ChevronLeft className="w-8 h-8 md:w-10 md:h-10" />
         </button>
         <button
           onClick={nextSlide}
-          className="absolute right-4 md:right-6 bottom-24 md:bottom-12 bg-black/40 p-2 md:p-3 rounded-full hover:bg-black/60 text-white transition z-20"
+          className="absolute right-4 md:right-6 bottom-24 md:bottom-12 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
         >
-          <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
+          <ChevronRight className="w-8 h-8 md:w-10 md:h-10" />
         </button>
       </div>
     </div>
