@@ -186,7 +186,7 @@ const SearchPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-white mb-6">
             {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{query}"
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {searchResults.map(movie => (
               <MovieCard key={movie.id} movie={movie} size="small" />
             ))}
