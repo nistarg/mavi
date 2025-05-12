@@ -41,7 +41,7 @@ const Navbar: React.FC = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="text-2xl font-bold text-white bg-indigo-600 px-2 py-1 rounded">
+            <div className="text-2xl font-bold text-white bg-red-600 px-2 py-1 rounded">
               MAVI
             </div>
           </Link>
@@ -53,7 +53,7 @@ const Navbar: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search movies..."
-                className="w-64 py-2 px-4 pr-10 rounded-full bg-gray-800 text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
+                className="w-64 py-2 px-4 pr-10 rounded-full bg-gray-800 text-white border border-gray-700 focus:border-red-600 focus:outline-none"
               />
               <button type="submit" className="absolute right-3 top-2.5 text-gray-400 hover:text-white">
                 <Search size={18} />
@@ -62,8 +62,8 @@ const Navbar: React.FC = () => {
             
             <Link
               to="/bookmarks"
-              className={`flex items-center space-x-1 hover:text-indigo-400 transition ${
-                location.pathname === '/bookmarks' ? 'text-indigo-400' : 'text-gray-300'
+              className={`flex items-center space-x-1 hover:text-red-600 transition ${
+                location.pathname === '/bookmarks' ? 'text-red-600' : 'text-gray-300'
               }`}
             >
               <Bookmark size={18} />
@@ -72,8 +72,8 @@ const Navbar: React.FC = () => {
             
             <Link
               to="/history"
-              className={`flex items-center space-x-1 hover:text-indigo-400 transition ${
-                location.pathname === '/history' ? 'text-indigo-400' : 'text-gray-300'
+              className={`flex items-center space-x-1 hover:text-red-600 transition ${
+                location.pathname === '/history' ? 'text-red-600' : 'text-gray-300'
               }`}
             >
               <History size={18} />
@@ -97,7 +97,7 @@ const Navbar: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search movies..."
-                className="w-full py-2 px-4 pr-10 rounded-full bg-gray-800 text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
+                className="w-full py-2 px-4 pr-10 rounded-full bg-gray-800 text-white border border-gray-700 focus:border-red-600 focus:outline-none"
               />
               <button type="submit" className="absolute right-3 top-2.5 text-gray-400 hover:text-white">
                 <Search size={18} />
@@ -107,7 +107,7 @@ const Navbar: React.FC = () => {
             <div className="flex flex-col space-y-4">
               <Link
                 to="/bookmarks"
-                className="flex items-center space-x-2 text-gray-300 hover:text-indigo-400 transition"
+                className="flex items-center space-x-2 text-gray-300 hover:text-red-600 transition"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <Bookmark size={18} />
@@ -116,7 +116,7 @@ const Navbar: React.FC = () => {
               
               <Link
                 to="/history"
-                className="flex items-center space-x-2 text-gray-300 hover:text-indigo-400 transition"
+                className="flex items-center space-x-2 text-gray-300 hover:text-red-600 transition"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <History size={18} />
