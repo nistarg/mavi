@@ -15,26 +15,28 @@ const YOUTUBE_API_KEYS = [
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 10;                 // up to 10 retries (one per key)
-const RETRY_DELAY = 800;
-const CACHE_DURATION = 1000 * 60 * 60;  // 1 hour cache
+const MAX_RETRIES = 10;                 // one retry per key
+const RETRY_DELAY = 800;                // ms
+const CACHE_DURATION = 1000 * 60 * 60;  // 1h
 
+// In-memory cache
 const cache = new Map<string, { data: any; ts: number }>();
 
-const getFromCache = (key: string) => {
-  const e = cache.get(key);
-  if (!e || Date.now() - e.ts > CACHE_DURATION) {
+const getFromCache = (key: string): any | null => {
+  const entry = cache.get(key);
+  if (!entry || Date.now() - entry.ts > CACHE_DURATION) {
     cache.delete(key);
     return null;
   }
-  return e.data;
+  return entry.data;
 };
 
-const setInCache = (key: string, data: any) => {
+const setInCache = (key: string, data: any): void => {
   cache.set(key, { data, ts: Date.now() });
 };
 
-const normKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const normKey = (s: string): string =>
+  s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 async function getYoutubeApiKey(): Promise<string> {
   const start = currentApiKeyIndex;
@@ -44,85 +46,109 @@ async function getYoutubeApiKey(): Promise<string> {
       const res = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=id&q=test&type=video&maxResults=1&key=${key}`
       );
-      const j = await res.json();
-      if (!j.error) return key;
-    } catch {}
+      const json = await res.json();
+      if (!json.error) return key;
+    } catch {
+      // network or parse error: fall through
+    }
+
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
+
+    // if we've looped back around, wait before next rotation
     if (currentApiKeyIndex === start) {
-      await new Promise(r => setTimeout(r, RETRY_DELAY));
+      await new Promise((r) => setTimeout(r, RETRY_DELAY));
     }
   }
   throw new Error('All YouTube API keys exhausted or quota exceeded.');
 }
 
-const cleanTitle = (t: string) =>
-  t.replace(/\([^)]*\)|\[[^\]]*\]|full movie|HD|4K|Trailer/gi, '')
-   .replace(/\s+/g, ' ')
-   .trim();
+const cleanTitle = (t: string): string =>
+  t
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, '')         // remove brackets
+    .replace(/full movie|trailer|teaser|clip/gi, '')
+    .replace(/HD|4K|1080p|720p/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 export async function getMovieDetails(title: string): Promise<any> {
-  const key = `omdb:${normKey(title)}`;
-  const cached = getFromCache(key);
+  const cacheKey = `omdb:${normKey(title)}`;
+  const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
   const ct = cleanTitle(title);
-  const url = `https://www.omdbapi.com/?t=${encodeURIComponent(ct)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+  const url = `https://www.omdbapi.com/?t=${encodeURIComponent(
+    ct
+  )}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
   const resp = await fetch(url);
   const data = await resp.json();
 
   if (data.Response === 'True') {
-    setInCache(key, data);
+    setInCache(cacheKey, data);
     return data;
   }
 
+  // Retry with first 3 words
   const short = ct.split(' ').slice(0, 3).join(' ');
   if (short !== ct) {
-    const r2 = await fetch(
-      `https://www.omdbapi.com/?t=${encodeURIComponent(short)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`
+    const resp2 = await fetch(
+      `https://www.omdbapi.com/?t=${encodeURIComponent(
+        short
+      )}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`
     );
-    const d2 = await r2.json();
-    if (d2.Response === 'True') {
-      setInCache(key, d2);
-      return d2;
+    const data2 = await resp2.json();
+    if (data2.Response === 'True') {
+      setInCache(cacheKey, data2);
+      return data2;
     }
   }
 
   return null;
 }
 
-export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movie[]>> {
+export async function searchMovies(
+  searchTerm: string
+): Promise<ApiResponse<Movie[]>> {
   const cacheKey = `search:${normKey(searchTerm)}`;
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
-  let retries = 0, lastErr = '';
+  let retries = 0;
+  let lastError = '';
+
   while (retries < MAX_RETRIES) {
     try {
       const apiKey = await getYoutubeApiKey();
+
+      // 1) Search up to 10 "full movie" videos
       const sr = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoDuration=long&maxResults=10&q=${encodeURIComponent(
           searchTerm + ' full movie'
         )}&key=${apiKey}`
       );
-      const { items, error } = await sr.json();
-      if (error) throw new Error(error.message);
+      const srJson = await sr.json();
+      if (srJson.error) throw new Error(srJson.error.message);
 
-      const ids = items.map((i: any) => i.id.videoId).join(',');
-      if (!ids) return { data: [], isLoading: false };
+      const videoIds = srJson.items
+        .map((i: any) => i.id.videoId)
+        .filter(Boolean)
+        .join(',');
+      if (!videoIds) return { data: [], isLoading: false };
 
+      // 2) Fetch details for those videos
       const dr = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${ids}&key=${apiKey}`
+        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`
       );
-      const { items: vids, error: err2 } = await dr.json();
-      if (err2) throw new Error(err2.message);
+      const drJson = await dr.json();
+      if (drJson.error) throw new Error(drJson.error.message);
 
+      // 3) Filter + enrich top 5, concurrent limit = 3
       const limit = pLimit(3);
-      const movies = await Promise.all(
-        vids
+      const movies: Movie[] = await Promise.all(
+        drJson.items
           .filter((v: any) => {
-            const m = convertToMin(v.contentDetails.duration);
-            const t = v.snippet.title.toLowerCase();
-            return m >= 60 && !t.includes('trailer') && !t.includes('teaser');
+            const mins = convertToMin(v.contentDetails.duration);
+            const txt = v.snippet.title.toLowerCase();
+            return mins >= 60 && !txt.includes('trailer') && !txt.includes('teaser');
           })
           .slice(0, 5)
           .map((v: any) =>
@@ -141,8 +167,11 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
                 durationInMinutes: convertToMin(v.contentDetails.duration),
                 viewCount: v.statistics.viewCount || '0',
               };
+
               const meta = await getMovieDetails(base.title);
-              return meta ? { ...base, ...mapOmdbToMovie(meta) } : base;
+              return meta
+                ? { ...base, ...mapOmdbToMovie(meta) }
+                : base;
             })
           )
       );
@@ -150,22 +179,24 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
       const result = { data: movies, isLoading: false };
       setInCache(cacheKey, result);
       return result;
-    } catch (e: any) {
-      lastErr = e.message;
+
+    } catch (err: any) {
+      lastError = err.message;
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-      await new Promise(r => setTimeout(r, RETRY_DELAY));
+      await new Promise((r) => setTimeout(r, RETRY_DELAY));
     }
   }
-  return { error: lastErr, isLoading: false };
+
+  return { error: lastError, isLoading: false };
 }
 
-function convertToMin(dur: string): number {
-  const m = dur.match(/PT(\d+H)?(\d+M)?/);
+function convertToMin(duration: string): number {
+  const m = duration.match(/PT(\d+H)?(\d+M)?/);
   if (!m) return 0;
-  const h = m[1] ? parseInt(m[1]) : 0;
+  const hours = m[1] ? parseInt(m[1]) : 0;
   const mins = m[2] ? parseInt(m[2]) : 0;
-  return h * 60 + mins;
+  return hours * 60 + mins;
 }
 
 function mapOmdbToMovie(o: any): Partial<Movie> {
@@ -177,7 +208,7 @@ function mapOmdbToMovie(o: any): Partial<Movie> {
     runtime: o.Runtime,
     genre: o.Genre,
     director: o.Director,
-    writers: o.Writer,
+    writer: o.Writer,
     actors: o.Actors,
     plot: o.Plot,
     language: o.Language,
@@ -191,15 +222,32 @@ function mapOmdbToMovie(o: any): Partial<Movie> {
   };
 }
 
-export const getTrendingMovies = () => searchMovies('Bollywood full movie');
-export const getMoviesByActor = (actor: string) => searchMovies(`${actor} full movie`);
-export const getMoviesByGenre = (genre: string) => searchMovies(`${genre} full movie`);
-export const advancedSearch = async (p: SearchParams) => {
-  let q = p.query;
-  [p.actor, p.genre, p.language, p.year].filter(Boolean).forEach(x => (q += ' ' + x));
+export const getTrendingMovies = (): Promise<ApiResponse<Movie[]>> =>
+  searchMovies('Bollywood full movie');
+
+export const getMoviesByActor = (
+  actor: string
+): Promise<ApiResponse<Movie[]>> =>
+  searchMovies(`${actor} full movie`);
+
+export const getMoviesByGenre = (
+  genre: string
+): Promise<ApiResponse<Movie[]>> =>
+  searchMovies(`${genre} full movie`);
+
+export const advancedSearch = async (
+  params: SearchParams
+): Promise<ApiResponse<Movie[]>> => {
+  let q = params.query;
+  [params.actor, params.genre, params.language, params.year]
+    .filter(Boolean)
+    .forEach((x) => (q += ' ' + x));
+
   const res = await searchMovies(q);
-  if (res.data && p.duration) {
-    res.data = res.data.filter(m => m.durationInMinutes >= p.duration);
+  if (res.data && params.duration) {
+    res.data = res.data.filter(
+      (m) => m.durationInMinutes >= params.duration!
+    );
   }
   return res;
 };
