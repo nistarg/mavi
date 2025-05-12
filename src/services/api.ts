@@ -14,10 +14,11 @@ const YOUTUBE_API_KEYS = [
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 10; // Increased to match number of API keys
+const MAX_RETRIES = 10;
 const RETRY_DELAY = 1000;
-const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hour cache
 
+// Memory cache for API responses
 const cache = new Map<string, { data: any; timestamp: number }>();
 
 const getFromCache = (key: string) => {
@@ -48,32 +49,20 @@ const getYoutubeApiKey = async (): Promise<string> => {
     } catch {}
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
     attempts++;
-    if (currentApiKeyIndex === initialIndex) await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempts));
+    if (currentApiKeyIndex === initialIndex) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+    }
   }
   throw new Error('All YouTube API keys are invalid or quota exceeded.');
 };
 
-const convertDurationToMinutes = (duration: string): number => {
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return 0;
-  const hours = match[1] ? parseInt(match[1]) : 0;
-  const minutes = match[2] ? parseInt(match[2]) : 0;
-  const seconds = match[3] ? parseInt(match[3]) : 0;
-  return hours * 60 + minutes + Math.floor(seconds / 60);
-};
-
 const cleanYoutubeTitle = (title: string): string => {
   return title
-    .replace(/full movie/gi, '')
     .replace(/\([^)]*\)/g, '')
     .replace(/\[[^\]]*\]/g, '')
-    .replace(/\d{4}/g, '')
+    .replace(/full movie/gi, '')
     .replace(/HD|4K|1080p|720p/gi, '')
-    .replace(/official trailer/gi, '')
-    .replace(/trailer/gi, '')
-    .replace(/clip/gi, '')
-    .replace(/teaser/gi, '')
-    .replace(/behind the scenes/gi, '')
+    .replace(/official trailer|trailer|teaser|clip|behind the scenes/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -88,9 +77,26 @@ export const getMovieDetails = async (title: string): Promise<any> => {
     const url = `https://www.omdbapi.com/?t=${encodeURIComponent(cleanTitle)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
-    const result = data.Response === 'True' ? data : null;
-    if (result) setInCache(cacheKey, result);
-    return result;
+    
+    if (data.Response === 'True') {
+      setInCache(cacheKey, data);
+      return data;
+    }
+    
+    // Try with first three words if full title fails
+    const shortTitle = cleanTitle.split(' ').slice(0, 3).join(' ');
+    if (shortTitle !== cleanTitle) {
+      const shortUrl = `https://www.omdbapi.com/?t=${encodeURIComponent(shortTitle)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+      const shortResponse = await fetch(shortUrl);
+      const shortData = await shortResponse.json();
+      
+      if (shortData.Response === 'True') {
+        setInCache(cacheKey, shortData);
+        return shortData;
+      }
+    }
+    
+    return null;
   } catch {
     return null;
   }
@@ -110,7 +116,7 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
       const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(searchTerm + ' full movie')}&type=video&videoDuration=long&key=${apiKey}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      
+
       if (data.error) {
         lastError = data.error.message;
         throw new Error(data.error.message);
@@ -122,13 +128,14 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
       const videoDetailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`;
       const detailsResponse = await fetch(videoDetailsUrl);
       const detailsData = await detailsResponse.json();
-      
+
       if (detailsData.error) {
         lastError = detailsData.error.message;
         throw new Error(detailsData.error.message);
       }
 
       const movies: Movie[] = [];
+      const enrichmentPromises: Promise<Movie>[] = [];
 
       for (const item of detailsData.items || []) {
         const durationInMinutes = convertDurationToMinutes(item.contentDetails?.duration);
@@ -136,52 +143,64 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
 
         if (durationInMinutes >= 60 &&
             !title.includes('trailer') &&
-            !title.includes('clip') &&
             !title.includes('teaser') &&
+            !title.includes('clip') &&
             !title.includes('behind the scenes')) {
 
-          const enriched = await enrichMovieWithMetadata({
+          const movie: Movie = {
             id: item.id,
             videoId: item.id,
             title: item.snippet?.title || 'Unknown Title',
-            thumbnail: item.snippet?.thumbnails?.maxres?.url || 
-                      item.snippet?.thumbnails?.high?.url || 
+            thumbnail: item.snippet?.thumbnails?.maxres?.url ||
+                      item.snippet?.thumbnails?.high?.url ||
                       item.snippet?.thumbnails?.default?.url,
             channelTitle: item.snippet?.channelTitle || 'Unknown Channel',
             publishedAt: item.snippet?.publishedAt,
             duration: item.contentDetails?.duration,
             durationInMinutes,
             viewCount: item.statistics?.viewCount || '0',
-          });
+          };
 
-          movies.push(enriched);
+          enrichmentPromises.push(enrichMovieWithMetadata(movie));
         }
       }
+
+      const enrichedMovies = await Promise.all(enrichmentPromises);
+      movies.push(...enrichedMovies);
 
       const result = { data: movies, isLoading: false };
       setInCache(cacheKey, result);
       return result;
+
     } catch (error) {
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-      
+
       if (retries === MAX_RETRIES) {
-        const errorMessage = lastError || 'Failed to search movies. Please check your API configuration.';
-        console.error(`Search failed after ${MAX_RETRIES} retries. Last error: ${errorMessage}`);
-        return { 
-          error: errorMessage, 
-          isLoading: false 
+        console.error(`Search failed after ${MAX_RETRIES} retries. Last error: ${lastError}`);
+        return {
+          error: lastError || 'Failed to search movies. Please try again later.',
+          isLoading: false
         };
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
     }
   }
-  
-  return { 
-    error: lastError || 'Search failed after maximum retries.', 
-    isLoading: false 
+
+  return {
+    error: lastError || 'Search failed after maximum retries.',
+    isLoading: false
   };
+};
+
+const convertDurationToMinutes = (duration: string): number => {
+  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  if (!match) return 0;
+  const hours = match[1] ? parseInt(match[1]) : 0;
+  const minutes = match[2] ? parseInt(match[2]) : 0;
+  const seconds = match[3] ? parseInt(match[3]) : 0;
+  return hours * 60 + minutes + Math.floor(seconds / 60);
 };
 
 export const enrichMovieWithMetadata = async (movie: Movie): Promise<Movie> => {
@@ -244,14 +263,12 @@ export const getTrendingMovies = async (): Promise<ApiResponse<Movie[]>> => {
   for (const query of queries) {
     const cached = getFromCache(`search:${query}`);
     if (cached && cached.data && cached.data.length > 0) {
-      console.log('Using cached results due to API failure');
       return cached;
     }
   }
 
-  // If everything fails, return a more descriptive error
   return {
-    error: 'Unable to fetch trending movies. Please check your YouTube API configuration or try again later.',
+    error: 'Unable to fetch trending movies. Please try again later.',
     isLoading: false
   };
 };
