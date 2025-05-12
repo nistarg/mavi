@@ -13,11 +13,12 @@ const YOUTUBE_API_KEYS = [
   'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
   'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
   'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
-  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
+  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE',
+  'AIzaSyBdAs1E82V2dF_8XCAWqiChuSyZa5u3n-s'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 13;
 const RETRY_DELAY = 300; // ms
 const CACHE_DURATION = 1000 * 60 * 60; // 1h
 
