@@ -85,9 +85,9 @@ const MoviePage: React.FC = () => {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <div className="flex flex-col items-center text-white">
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-xl">Loading movie...</p>
         </div>
       </div>
@@ -96,7 +96,7 @@ const MoviePage: React.FC = () => {
   
   if (error || !movie) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 py-16 text-center text-white">
         <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
         <p className="mb-4">
           {error || 'Movie not found. It might have been removed from YouTube.'}
@@ -106,7 +106,7 @@ const MoviePage: React.FC = () => {
   }
   
   return (
-    <div className="pt-16">
+    <div className="pt-16 bg-black text-white">
       <div className="container mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-4">{movie.title}</h1>
@@ -116,7 +116,7 @@ const MoviePage: React.FC = () => {
             
             {movie.durationInMinutes && (
               <div className="flex items-center">
-                <Clock size={16} className="mr-1" />
+                <Clock size={16} className="mr-1 text-gray-400" />
                 <span>{movie.durationInMinutes} min</span>
               </div>
             )}
@@ -132,7 +132,7 @@ const MoviePage: React.FC = () => {
               onClick={handleBookmark}
               className={`flex items-center gap-1 px-3 py-1 rounded-full border ${
                 isBookmarked 
-                  ? 'border-indigo-500 text-indigo-400' 
+                  ? 'border-red-500 text-red-500' 
                   : 'border-gray-700 text-gray-400 hover:border-gray-500'
               } transition`}
             >
@@ -148,7 +148,7 @@ const MoviePage: React.FC = () => {
           </div>
           
           <div>
-            <div className="bg-gray-800 rounded-lg p-6">
+            <div className="bg-gray-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Movie Details</h2>
               
               {movie.plot && (
@@ -160,7 +160,7 @@ const MoviePage: React.FC = () => {
               <div className="space-y-4">
                 {movie.director && (
                   <div className="flex items-start">
-                    <User className="text-indigo-400 mr-3 mt-0.5" size={18} />
+                    <User className="text-red-500 mr-3 mt-0.5" size={18} />
                     <div>
                       <p className="text-gray-400 text-sm">Director</p>
                       <p className="text-white">{movie.director}</p>
@@ -170,7 +170,7 @@ const MoviePage: React.FC = () => {
                 
                 {movie.actors && (
                   <div className="flex items-start">
-                    <User className="text-indigo-400 mr-3 mt-0.5" size={18} />
+                    <User className="text-red-500 mr-3 mt-0.5" size={18} />
                     <div>
                       <p className="text-gray-400 text-sm">Cast</p>
                       <p className="text-white">{movie.actors}</p>
@@ -180,7 +180,7 @@ const MoviePage: React.FC = () => {
                 
                 {movie.genre && (
                   <div className="flex items-start">
-                    <Film className="text-indigo-400 mr-3 mt-0.5" size={18} />
+                    <Film className="text-red-500 mr-3 mt-0.5" size={18} />
                     <div>
                       <p className="text-gray-400 text-sm">Genre</p>
                       <p className="text-white">{movie.genre}</p>
@@ -190,7 +190,7 @@ const MoviePage: React.FC = () => {
                 
                 {movie.awards && movie.awards !== 'N/A' && (
                   <div className="flex items-start">
-                    <Award className="text-indigo-400 mr-3 mt-0.5" size={18} />
+                    <Award className="text-red-500 mr-3 mt-0.5" size={18} />
                     <div>
                       <p className="text-gray-400 text-sm">Awards</p>
                       <p className="text-white">{movie.awards}</p>
@@ -209,7 +209,7 @@ const MoviePage: React.FC = () => {
           />
         </div>
         
-        <div className="bg-gray-800 rounded-lg p-6 mb-12">
+        <div className="bg-gray-900 rounded-lg p-6 mb-12">
           <h2 className="text-xl font-semibold mb-4">Legal Disclaimer</h2>
           <p className="text-gray-300 text-sm">
             This content is streamed directly from YouTube and is publicly available there. 
