@@ -4,10 +4,17 @@ const YOUTUBE_API_KEYS = [
   import.meta.env.VITE_YOUTUBE_API_KEY_1,
   import.meta.env.VITE_YOUTUBE_API_KEY_2,
   import.meta.env.VITE_YOUTUBE_API_KEY_3,
+  'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
+  'AIzaSyC_2QM86c1ZDwrFq5TrDHYw91wuHAAXtu0',
+  'AIzaSyDxrMr6aBkVCb91-Kp5ltsumOIbzK6bzN0',
+  'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
+  'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
+  'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
+  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 10; // Increased to match number of API keys
 const RETRY_DELAY = 1000;
 const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
 
@@ -28,14 +35,22 @@ const setInCache = (key: string, data: any) => {
 };
 
 const getYoutubeApiKey = async (): Promise<string> => {
-  if (!YOUTUBE_API_KEYS.length) {
-    throw new Error('No YouTube API keys configured. Please check your environment variables.');
+  const initialIndex = currentApiKeyIndex;
+  let attempts = 0;
+
+  while (attempts < YOUTUBE_API_KEYS.length) {
+    const key = YOUTUBE_API_KEYS[currentApiKeyIndex];
+    try {
+      const testUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=test&type=video&key=${key}`;
+      const response = await fetch(testUrl);
+      const data = await response.json();
+      if (!data.error) return key;
+    } catch {}
+    currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
+    attempts++;
+    if (currentApiKeyIndex === initialIndex) await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempts));
   }
-  const key = YOUTUBE_API_KEYS[currentApiKeyIndex];
-  if (!key) {
-    throw new Error('Invalid YouTube API key configuration.');
-  }
-  return key;
+  throw new Error('All YouTube API keys are invalid or quota exceeded.');
 };
 
 const convertDurationToMinutes = (duration: string): number => {
@@ -92,7 +107,7 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
   while (retries < MAX_RETRIES) {
     try {
       const apiKey = await getYoutubeApiKey();
-      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=${encodeURIComponent(searchTerm + ' full movie')}&type=video&videoDuration=long&key=${apiKey}`;
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(searchTerm + ' full movie')}&type=video&videoDuration=long&key=${apiKey}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
       
