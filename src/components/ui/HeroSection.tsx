@@ -25,51 +25,56 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
         decoding="async"
       />
       {/* Dark Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent z-10" />
 
       {/* Content */}
-      <div className="relative z-20 flex flex-col justify-center h-full px-6 md:px-12 max-w-3xl">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-4 drop-shadow-md">{movie.title}</h1>
+      <div className="relative z-20 flex flex-col justify-center h-full px-8 md:px-16 max-w-5xl">
+        {/* Title */}
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 drop-shadow-md">{movie.title}</h1>
 
-        <div className="flex items-center text-sm text-gray-300 gap-4 mb-3">
+        {/* Meta Info: Rating, Duration, Year */}
+        <div className="flex items-center text-lg text-gray-300 gap-6 mb-4">
           {movie.imdbRating && (
-            <div className="flex items-center gap-1 text-yellow-400">
-              <Star size={16} />
-              <span>{movie.imdbRating}</span>
+            <div className="flex items-center gap-2 text-yellow-400">
+              <Star size={20} />
+              <span className="font-semibold">{movie.imdbRating}</span>
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <Clock size={16} />
-            <span>{movie.durationInMinutes} min</span>
+          <div className="flex items-center gap-2">
+            <Clock size={20} />
+            <span className="font-semibold">{movie.durationInMinutes} min</span>
           </div>
-          {movie.year && <span>{movie.year}</span>}
+          {movie.year && <span className="font-semibold">{movie.year}</span>}
         </div>
 
+        {/* Genres */}
         {movie.genre && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-4 mb-5">
             {movie.genre.split(',').slice(0, 3).map((g, i) => (
-              <span key={i} className="bg-white/10 px-3 py-1 rounded-full text-xs">{g.trim()}</span>
+              <span key={i} className="bg-white/20 px-4 py-2 rounded-full text-sm font-medium">{g.trim()}</span>
             ))}
           </div>
         )}
 
+        {/* Plot */}
         {movie.plot && (
-          <p className="text-sm text-gray-300 mb-6 line-clamp-3">{movie.plot}</p>
+          <p className="text-lg text-gray-300 mb-8 line-clamp-4">{movie.plot}</p>
         )}
 
-        <div className="flex gap-4">
+        {/* Buttons */}
+        <div className="flex gap-6">
           <button
             onClick={handlePlay}
-            className="flex items-center px-6 py-2 bg-white text-black font-semibold rounded hover:bg-gray-200 transition"
+            className="flex items-center px-8 py-3 bg-white text-black font-semibold text-lg rounded-xl hover:bg-gray-200 transition duration-300"
           >
-            <Play size={20} className="mr-2" />
+            <Play size={24} className="mr-3" />
             Play
           </button>
           <button
             onClick={() => navigate(`/movie/${movie.id}`)}
-            className="flex items-center px-6 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded transition"
+            className="flex items-center px-8 py-3 bg-white/30 hover:bg-white/40 text-white font-semibold text-lg rounded-xl transition duration-300"
           >
-            <Info size={20} className="mr-2" />
+            <Info size={24} className="mr-3" />
             More Info
           </button>
         </div>
