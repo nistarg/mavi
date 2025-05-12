@@ -13,7 +13,7 @@ const YOUTUBE_API_KEYS = [
   'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
   'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
   'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
-  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE',
+  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
@@ -37,7 +37,7 @@ function setInCache(key: string, data: any): void {
 }
 
 function normKey(s: string): string {
-  return s.toLowerCase().replace(/\[^a-z0-9]/g, '');
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 async function getYoutubeApiKey(): Promise<string> {
@@ -148,12 +148,15 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
   let retries = 0;
   while (retries < MAX_RETRIES) {
     try {
+      console.log("Search query:", searchTerm);  // Added log
       const apiKey = await getYoutubeApiKey();
       const sr = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoDuration=long&maxResults=5&q=${encodeURIComponent(searchTerm + ' full movie')}&key=${apiKey}`
       );
       const srJson: any = await sr.json();
       if (srJson.error) throw new Error(srJson.error.message);
+
+      console.log("YouTube API response:", srJson);  // Added log
 
       const videoIds = srJson.items.map((i: any) => i.id.videoId).filter(Boolean).join(',');
       if (!videoIds) return { data: [], isLoading: false };
@@ -197,6 +200,7 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
       await new Promise((r) => setTimeout(r, RETRY_DELAY));
+      console.error("Error fetching movies:", err);  // Added log
     }
   }
 
