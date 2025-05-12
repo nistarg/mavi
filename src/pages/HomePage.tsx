@@ -47,7 +47,7 @@ const HomePage: React.FC = () => {
       if (retryCount < MAX_RETRIES) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.log(`Retrying fetch (${nextRetry}/${MAX_RETRIES}) in ${RETRY_DELAY/1000} seconds...`);
+        console.log(`Retrying fetch (${nextRetry}/${MAX_RETRIES}) in ${RETRY_DELAY / 1000} seconds...`);
         
         retryTimeoutRef.current = window.setTimeout(() => {
           fetchRecs();
@@ -97,7 +97,7 @@ const HomePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -105,8 +105,8 @@ const HomePage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center text-white p-8">
+      <div className="flex items-center justify-center min-h-screen bg-black text-white">
+        <div className="text-center p-8">
           <h2 className="text-3xl font-semibold mb-2">Something went wrong</h2>
           <p className="mb-4">{error}</p>
           <button
