@@ -28,8 +28,14 @@ const setInCache = (key: string, data: any) => {
 };
 
 const getYoutubeApiKey = async (): Promise<string> => {
-  if (!YOUTUBE_API_KEYS.length) throw new Error('No YouTube API keys available.');
-  return YOUTUBE_API_KEYS[currentApiKeyIndex];
+  if (!YOUTUBE_API_KEYS.length) {
+    throw new Error('No YouTube API keys configured. Please check your environment variables.');
+  }
+  const key = YOUTUBE_API_KEYS[currentApiKeyIndex];
+  if (!key) {
+    throw new Error('Invalid YouTube API key configuration.');
+  }
+  return key;
 };
 
 const convertDurationToMinutes = (duration: string): number => {
@@ -81,13 +87,19 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
   if (cached) return cached;
 
   let retries = 0;
+  let lastError: string | null = null;
+
   while (retries < MAX_RETRIES) {
     try {
       const apiKey = await getYoutubeApiKey();
       const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=${encodeURIComponent(searchTerm + ' full movie')}&type=video&videoDuration=long&key=${apiKey}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
+      
+      if (data.error) {
+        lastError = data.error.message;
+        throw new Error(data.error.message);
+      }
 
       const videoIds = data.items.map((item: any) => item.id.videoId).filter(Boolean).join(',');
       if (!videoIds) return { data: [], isLoading: false };
@@ -95,7 +107,11 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
       const videoDetailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`;
       const detailsResponse = await fetch(videoDetailsUrl);
       const detailsData = await detailsResponse.json();
-      if (detailsData.error) throw new Error(detailsData.error.message);
+      
+      if (detailsData.error) {
+        lastError = detailsData.error.message;
+        throw new Error(detailsData.error.message);
+      }
 
       const movies: Movie[] = [];
 
@@ -133,11 +149,24 @@ export const searchMovies = async (searchTerm: string): Promise<ApiResponse<Movi
     } catch (error) {
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-      if (retries === MAX_RETRIES) return { error: 'Failed to search movies.', isLoading: false };
+      
+      if (retries === MAX_RETRIES) {
+        const errorMessage = lastError || 'Failed to search movies. Please check your API configuration.';
+        console.error(`Search failed after ${MAX_RETRIES} retries. Last error: ${errorMessage}`);
+        return { 
+          error: errorMessage, 
+          isLoading: false 
+        };
+      }
+      
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
     }
   }
-  return { error: 'Search failed.', isLoading: false };
+  
+  return { 
+    error: lastError || 'Search failed after maximum retries.', 
+    isLoading: false 
+  };
 };
 
 export const enrichMovieWithMetadata = async (movie: Movie): Promise<Movie> => {
@@ -187,8 +216,29 @@ export const getTrendingMovies = async (): Promise<ApiResponse<Movie[]>> => {
     'Alia Bhatt full movie',
     'Akshay Kumar full movie'
   ];
-  const randomQuery = queries[Math.floor(Math.random() * queries.length)];
-  return await searchMovies(randomQuery);
+
+  // Try each query until we get a successful response
+  for (const query of queries) {
+    const result = await searchMovies(query);
+    if (!result.error && result.data && result.data.length > 0) {
+      return result;
+    }
+  }
+
+  // If all queries fail, check if we have any cached results
+  for (const query of queries) {
+    const cached = getFromCache(`search:${query}`);
+    if (cached && cached.data && cached.data.length > 0) {
+      console.log('Using cached results due to API failure');
+      return cached;
+    }
+  }
+
+  // If everything fails, return a more descriptive error
+  return {
+    error: 'Unable to fetch trending movies. Please check your YouTube API configuration or try again later.',
+    isLoading: false
+  };
 };
 
 export const getMoviesByActor = async (actor: string): Promise<ApiResponse<Movie[]>> => {

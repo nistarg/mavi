@@ -5,41 +5,76 @@ import { getTrendingMovies, enrichMovieWithMetadata } from '../services/api';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const SLIDE_INTERVAL = 5000;
+const RETRY_DELAY = 5000;
+const MAX_RETRIES = 3;
 
 const HomePage: React.FC = () => {
   const [recommendations, setRecommendations] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   const autoSlideRef = useRef<number | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
+
+  const fetchRecs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await getTrendingMovies();
+      
+      if (res.error) {
+        throw new Error(res.error);
+      }
+      
+      const movies = res.data || [];
+      if (movies.length === 0) {
+        throw new Error('No movies found. Please try again later.');
+      }
+      
+      const top = movies.slice(0, 4);
+      const enriched = await Promise.all(
+        top.map(movie => enrichMovieWithMetadata(movie))
+      );
+      setRecommendations(enriched);
+      setRetryCount(0); // Reset retry count on success
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      
+      // Implement retry logic
+      if (retryCount < MAX_RETRIES) {
+        const nextRetry = retryCount + 1;
+        setRetryCount(nextRetry);
+        console.log(`Retrying fetch (${nextRetry}/${MAX_RETRIES}) in ${RETRY_DELAY/1000} seconds...`);
+        
+        retryTimeoutRef.current = window.setTimeout(() => {
+          fetchRecs();
+        }, RETRY_DELAY);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchRecs = async () => {
-      try {
-        setLoading(true);
-        const res = await getTrendingMovies();
-        if (res.error) throw new Error(res.error);
-        const movies = res.data || [];
-        const top = movies.slice(0, 4);
-        const enriched = await Promise.all(
-          top.map(movie => enrichMovieWithMetadata(movie))
-        );
-        setRecommendations(enriched);
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
+    fetchRecs();
+    
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
     };
-    fetchRecs();
   }, []);
 
   useEffect(() => {
     if (!recommendations.length) return;
+    
     autoSlideRef.current = window.setInterval(() => {
       setCurrentIdx(prev => (prev + 1) % recommendations.length);
     }, SLIDE_INTERVAL);
+    
     return () => {
       if (autoSlideRef.current) clearInterval(autoSlideRef.current);
     };
@@ -55,6 +90,11 @@ const HomePage: React.FC = () => {
     setCurrentIdx(prev => (prev + 1) % recommendations.length);
   };
 
+  const handleRetry = () => {
+    setRetryCount(0);
+    fetchRecs();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -68,7 +108,13 @@ const HomePage: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center text-white p-8">
           <h2 className="text-3xl font-semibold mb-2">Something went wrong</h2>
-          <p>{error}</p>
+          <p className="mb-4">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
