@@ -14,7 +14,7 @@ const YOUTUBE_API_KEYS = [
   'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
   'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
   'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
-].filter(Boolean);
+].filter(Boolean) as string[];
 
 let currentApiKeyIndex = 0;
 const MAX_RETRIES = 10;
@@ -52,19 +52,56 @@ async function getYoutubeApiKey(): Promise<string> {
       if (!json.error) return key;
     } catch {}
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-    if (currentApiKeyIndex === start) await new Promise((r) => setTimeout(r, RETRY_DELAY));
+    if (currentApiKeyIndex === start) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY));
+    }
   }
   throw new Error('All YouTube API keys exhausted or quota exceeded.');
 }
 
-function extractMovieTitle(rawTitle: string): string {
-  let s = rawTitle.replace(/\s*\[[^\]]*\]|\s*\([^)]*\)/g, '').trim();
-  const [chunk] = s.split(/[-\u2013|:]/).map((c) => c.trim());
-  let cleaned = chunk.replace(/\b(19|20)\d{2}\b/g, '').trim();
-  cleaned = cleaned.replace(/\b(HD|4K|1080p|720p|BRRip|WEBRip)\b/gi, '').trim();
-  cleaned = cleaned.split(/\b(Official Trailer|Trailer|Teaser|Full Movie)\b/i)[0].trim();
-  const runs = cleaned.match(/(?:[A-Z][a-z']+(?:\s|$))+?/g) || [];
-  return (runs.sort((a, b) => b.length - a.length)[0] || cleaned).trim();
+async function extractMovieTitle(rawTitle: string): Promise<string> {
+  // 1. Clean up junk
+  let s = rawTitle
+    .replace(/\s*\[[^\]]*]|\s*\([^)]*\)/g, '')    // remove [tags] and (tags)
+    .replace(/\b(19|20)\d{2}\b/g, '')             // remove years
+    .replace(/\b(HD|4K|1080p|720p|BRRip|WEBRip|BluRay|DVDRip)\b/gi, '')
+    .replace(/\b(Official Trailer|Trailer|Teaser|Full Movie)\b/gi, '')
+    .trim();
+
+  // 2. Title‐case heuristic
+  const tcMatches = Array.from(
+    s.matchAll(/\b([A-Z][a-z']+(?:\s+[A-Z][a-z']+)+)\b/g)
+  ).map(m => m[1]);
+  let candidate: string;
+  if (tcMatches.length) {
+    candidate = tcMatches.reduce((a, b) => (a.length >= b.length ? a : b));
+  } else {
+    // fallback split
+    const parts = s.split(/[-–—|:•]/).map(p => p.trim()).filter(Boolean);
+    candidate = parts.length
+      ? parts.reduce((a, b) => (a.length >= b.length ? a : b))
+      : s;
+  }
+  candidate = candidate.trim();
+
+  // 3. OMDb confirmation
+  try {
+    const cacheKey = `confirmTitle:${normKey(candidate)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
+    const url = `https://www.omdbapi.com/?t=${encodeURIComponent(candidate)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+    const resp = await fetch(url);
+    const json: any = await resp.json();
+    if (json.Response === 'True' && json.Title) {
+      setInCache(cacheKey, json.Title);
+      return json.Title;
+    }
+  } catch {
+    // ignore failures, fall back
+  }
+
+  return candidate;
 }
 
 function convertToMin(duration: string): number {
@@ -175,27 +212,30 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
             return mins >= 60 && !titleLc.includes('trailer') && !titleLc.includes('teaser');
           })
           .map((v: any) =>
-            limit(async () => enrichMovieWithMetadata({
-              id: v.id,
-              videoId: v.id,
-              title: extractMovieTitle(v.snippet.title),
-              thumbnail:
-                v.snippet.thumbnails.maxres?.url ||
-                v.snippet.thumbnails.high?.url ||
-                v.snippet.thumbnails.default?.url,
-              channelTitle: v.snippet.channelTitle,
-              publishedAt: v.snippet.publishedAt,
-              duration: v.contentDetails.duration,
-              durationInMinutes: convertToMin(v.contentDetails.duration),
-              viewCount: v.statistics.viewCount || '0',
-            }))
+            limit(async () => {
+              const title = await extractMovieTitle(v.snippet.title);
+              return enrichMovieWithMetadata({
+                id: v.id,
+                videoId: v.id,
+                title,
+                thumbnail:
+                  v.snippet.thumbnails.maxres?.url ||
+                  v.snippet.thumbnails.high?.url ||
+                  v.snippet.thumbnails.default?.url,
+                channelTitle: v.snippet.channelTitle,
+                publishedAt: v.snippet.publishedAt,
+                duration: v.contentDetails.duration,
+                durationInMinutes: convertToMin(v.contentDetails.duration),
+                viewCount: v.statistics.viewCount || '0',
+              });
+            })
           )
       );
 
       const result: ApiResponse<Movie[]> = { data: movies, isLoading: false };
       setInCache(cacheKey, result);
       return result;
-    } catch (err) {
+    } catch {
       retries++;
       currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
       await new Promise((r) => setTimeout(r, RETRY_DELAY));
@@ -218,7 +258,9 @@ export const getMoviesByGenre = (genre: string): Promise<ApiResponse<Movie[]>> =
 
 export async function advancedSearch(params: SearchParams): Promise<ApiResponse<Movie[]>> {
   let q = params.query;
-  [params.actor, params.genre, params.language, params.year].filter(Boolean).forEach(x => (q += ' ' + x));
+  [params.actor, params.genre, params.language, params.year]
+    .filter(Boolean)
+    .forEach(x => (q += ' ' + x));
   const res = await searchMovies(q);
   if (res.data && params.duration) {
     res.data = res.data.filter(m => m.durationInMinutes >= params.duration);
