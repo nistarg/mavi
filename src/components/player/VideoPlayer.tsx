@@ -137,30 +137,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
       <div ref={playerRef} className="w-full h-full" onClick={togglePlay} />
 
       {loaded && controlsVisible && (
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-4">
-          <div className="w-full h-1 bg-gray-700 rounded cursor-pointer mb-3" onClick={handleProgressClick}>
+        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-6">
+          <div className="w-full h-1 bg-gray-700 rounded cursor-pointer mb-4" onClick={handleProgressClick}>
             <div className="h-full bg-red-600 rounded" style={{ width: `${(time / duration) * 100}%` }} />
           </div>
 
           <div className="flex items-center justify-between text-white">
-            <div className="flex items-center space-x-6">
-              <button onClick={togglePlay} className="p-2 rounded-full bg-black/50 hover:bg-white/20">
-                {playing ? <Pause size={28} /> : <Play size={28} />}
+            <div className="flex items-center space-x-8">
+              <button onClick={togglePlay} className="p-3 rounded-full bg-black/50 hover:bg-white/20">
+                {playing ? <Pause size={32} /> : <Play size={32} />}
               </button>
 
-              <button onClick={() => seek(-10)} className="p-2 rounded-full bg-black/50 hover:bg-white/20 flex items-center">
-                <SkipBack size={24} /> <span className="ml-1 text-lg">10+</span>
+              <button onClick={() => seek(-10)} className="p-3 rounded-full bg-black/50 hover:bg-white/20 flex items-center">
+                <SkipBack size={28} /> <span className="ml-1 text-xl">10+</span>
               </button>
 
-              <button onClick={() => seek(10)} className="p-2 rounded-full bg-black/50 hover:bg-white/20 flex items-center">
-                <span className="mr-1 text-lg">10+</span> <SkipForward size={24} />
+              <button onClick={() => seek(10)} className="p-3 rounded-full bg-black/50 hover:bg-white/20 flex items-center">
+                <span className="mr-1 text-xl">10+</span> <SkipForward size={28} />
               </button>
 
-              <span>{format(time)} / {format(duration)}</span>
+              <span className="text-xl">{format(time)} / {format(duration)}</span>
             </div>
 
-            <button onClick={handleFullscreen} className="p-2 rounded-full bg-black/50 hover:bg-white/20">
-              <Maximize size={24} />
+            <button onClick={handleFullscreen} className="p-3 rounded-full bg-black/50 hover:bg-white/20">
+              <Maximize size={28} />
             </button>
           </div>
         </div>
