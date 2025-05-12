@@ -15,28 +15,28 @@ const YOUTUBE_API_KEYS = [
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 10;                 // one retry per key
-const RETRY_DELAY = 800;                // ms
-const CACHE_DURATION = 1000 * 60 * 60;  // 1h
+const MAX_RETRIES = 10;
+const RETRY_DELAY = 800;
+const CACHE_DURATION = 1000 * 60 * 60; // 1h
 
-// In-memory cache
 const cache = new Map<string, { data: any; ts: number }>();
 
-const getFromCache = (key: string): any | null => {
+function getFromCache(key: string): any | null {
   const entry = cache.get(key);
   if (!entry || Date.now() - entry.ts > CACHE_DURATION) {
     cache.delete(key);
     return null;
   }
   return entry.data;
-};
+}
 
-const setInCache = (key: string, data: any): void => {
+function setInCache(key: string, data: any): void {
   cache.set(key, { data, ts: Date.now() });
-};
+}
 
-const normKey = (s: string): string =>
-  s.toLowerCase().replace(/[^a-z0-9]/g, '');
+function normKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 async function getYoutubeApiKey(): Promise<string> {
   const start = currentApiKeyIndex;
@@ -46,15 +46,12 @@ async function getYoutubeApiKey(): Promise<string> {
       const res = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=id&q=test&type=video&maxResults=1&key=${key}`
       );
-      const json = await res.json();
+      const json: any = await res.json();
       if (!json.error) return key;
     } catch {
-      // network or parse error: fall through
+      // ignore
     }
-
     currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-
-    // if we've looped back around, wait before next rotation
     if (currentApiKeyIndex === start) {
       await new Promise((r) => setTimeout(r, RETRY_DELAY));
     }
@@ -62,13 +59,14 @@ async function getYoutubeApiKey(): Promise<string> {
   throw new Error('All YouTube API keys exhausted or quota exceeded.');
 }
 
-const cleanTitle = (t: string): string =>
-  t
-    .replace(/\([^)]*\)|\[[^\]]*\]/g, '')         // remove brackets
+function cleanTitle(t: string): string {
+  return t
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, '')
     .replace(/full movie|trailer|teaser|clip/gi, '')
     .replace(/HD|4K|1080p|720p/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
 
 export async function getMovieDetails(title: string): Promise<any> {
   const cacheKey = `omdb:${normKey(title)}`;
@@ -80,14 +78,14 @@ export async function getMovieDetails(title: string): Promise<any> {
     ct
   )}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
   const resp = await fetch(url);
-  const data = await resp.json();
+  const data: any = await resp.json();
 
   if (data.Response === 'True') {
     setInCache(cacheKey, data);
     return data;
   }
 
-  // Retry with first 3 words
+  // retry short title
   const short = ct.split(' ').slice(0, 3).join(' ');
   if (short !== ct) {
     const resp2 = await fetch(
@@ -95,7 +93,7 @@ export async function getMovieDetails(title: string): Promise<any> {
         short
       )}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`
     );
-    const data2 = await resp2.json();
+    const data2: any = await resp2.json();
     if (data2.Response === 'True') {
       setInCache(cacheKey, data2);
       return data2;
@@ -119,13 +117,13 @@ export async function searchMovies(
     try {
       const apiKey = await getYoutubeApiKey();
 
-      // 1) Search up to 10 "full movie" videos
+      // step 1 — search
       const sr = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoDuration=long&maxResults=10&q=${encodeURIComponent(
           searchTerm + ' full movie'
         )}&key=${apiKey}`
       );
-      const srJson = await sr.json();
+      const srJson: any = await sr.json();
       if (srJson.error) throw new Error(srJson.error.message);
 
       const videoIds = srJson.items
@@ -134,16 +132,16 @@ export async function searchMovies(
         .join(',');
       if (!videoIds) return { data: [], isLoading: false };
 
-      // 2) Fetch details for those videos
+      // step 2 — details
       const dr = await fetch(
         `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`
       );
-      const drJson = await dr.json();
+      const drJson: any = await dr.json();
       if (drJson.error) throw new Error(drJson.error.message);
 
-      // 3) Filter + enrich top 5, concurrent limit = 3
+      // step 3 — filter + enrich
       const limit = pLimit(3);
-      const movies: Movie[] = await Promise.all(
+      const movies = await Promise.all<Movie>(
         drJson.items
           .filter((v: any) => {
             const mins = convertToMin(v.contentDetails.duration);
@@ -167,19 +165,15 @@ export async function searchMovies(
                 durationInMinutes: convertToMin(v.contentDetails.duration),
                 viewCount: v.statistics.viewCount || '0',
               };
-
               const meta = await getMovieDetails(base.title);
-              return meta
-                ? { ...base, ...mapOmdbToMovie(meta) }
-                : base;
+              return meta ? { ...base, ...mapOmdbToMovie(meta) } : base;
             })
           )
       );
 
-      const result = { data: movies, isLoading: false };
+      const result: ApiResponse<Movie[]> = { data: movies, isLoading: false };
       setInCache(cacheKey, result);
       return result;
-
     } catch (err: any) {
       lastError = err.message;
       retries++;
@@ -225,19 +219,15 @@ function mapOmdbToMovie(o: any): Partial<Movie> {
 export const getTrendingMovies = (): Promise<ApiResponse<Movie[]>> =>
   searchMovies('Bollywood full movie');
 
-export const getMoviesByActor = (
-  actor: string
-): Promise<ApiResponse<Movie[]>> =>
+export const getMoviesByActor = (actor: string): Promise<ApiResponse<Movie[]>> =>
   searchMovies(`${actor} full movie`);
 
-export const getMoviesByGenre = (
-  genre: string
-): Promise<ApiResponse<Movie[]>> =>
+export const getMoviesByGenre = (genre: string): Promise<ApiResponse<Movie[]>> =>
   searchMovies(`${genre} full movie`);
 
-export const advancedSearch = async (
+export async function advancedSearch(
   params: SearchParams
-): Promise<ApiResponse<Movie[]>> => {
+): Promise<ApiResponse<Movie[]>> {
   let q = params.query;
   [params.actor, params.genre, params.language, params.year]
     .filter(Boolean)
@@ -245,9 +235,7 @@ export const advancedSearch = async (
 
   const res = await searchMovies(q);
   if (res.data && params.duration) {
-    res.data = res.data.filter(
-      (m) => m.durationInMinutes >= params.duration!
-    );
+    res.data = res.data.filter((m) => m.durationInMinutes >= params.duration!);
   }
   return res;
-};
+}
