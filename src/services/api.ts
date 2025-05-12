@@ -100,6 +100,46 @@ async function fallbackSearchOMDb(searchTerm: string): Promise<ApiResponse<Movie
   return { data: [], isLoading: false };
 }
 
+export async function enrichMovieWithMetadata(movie: Movie): Promise<Movie> {
+  const cacheKey = `enrich:${normKey(movie.id)}`;
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const url = `https://www.omdbapi.com/?t=${encodeURIComponent(movie.title)}&apikey=${import.meta.env.VITE_OMDB_API_KEY}`;
+    const resp = await fetch(url);
+    const omdb = await resp.json();
+    if (omdb.Response !== 'True') return movie;
+
+    const enriched: Movie = {
+      ...movie,
+      title: omdb.Title || movie.title,
+      year: omdb.Year,
+      rated: omdb.Rated,
+      released: omdb.Released,
+      runtime: omdb.Runtime,
+      genre: omdb.Genre,
+      director: omdb.Director,
+      writer: omdb.Writer,
+      actors: omdb.Actors,
+      plot: omdb.Plot,
+      language: omdb.Language,
+      country: omdb.Country,
+      awards: omdb.Awards,
+      poster: omdb.Poster !== 'N/A' ? omdb.Poster : movie.thumbnail,
+      ratings: omdb.Ratings,
+      imdbRating: omdb.imdbRating,
+      imdbID: omdb.imdbID,
+      type: omdb.Type,
+    };
+
+    setInCache(cacheKey, enriched);
+    return enriched;
+  } catch {
+    return movie;
+  }
+}
+
 export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movie[]>> {
   const cacheKey = `search:${normKey(searchTerm)}`;
   const cached = getFromCache(cacheKey);
@@ -135,7 +175,7 @@ export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movi
             return mins >= 60 && !titleLc.includes('trailer') && !titleLc.includes('teaser');
           })
           .map((v: any) =>
-            limit(async () => ({
+            limit(async () => enrichMovieWithMetadata({
               id: v.id,
               videoId: v.id,
               title: extractMovieTitle(v.snippet.title),
