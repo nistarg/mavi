@@ -1,5 +1,3 @@
-// VideoPlayer.tsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Maximize } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
@@ -25,21 +23,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
   const hideTimeout = useRef<number>();
   const { addToWatchHistory } = useAppContext();
 
-  // Fullscreen change listener and keyboard controls
   useEffect(() => {
     const onFull = () => {
       setIsFullscreen(document.fullscreenElement === containerRef.current);
       document.body.style.cursor = document.fullscreenElement ? 'none' : 'default';
     };
+
     const onKey = (e: KeyboardEvent) => {
       if (!containerRef.current) return;
-      if (document.fullscreenElement === containerRef.current) {
-        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-        if (e.code === 'ArrowRight') seek(10);
-        if (e.code === 'ArrowLeft') seek(-10);
-        if (e.code === 'Enter') handleFullscreen();
-      }
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      if (e.code === 'ArrowRight') seek(10);
+      if (e.code === 'ArrowLeft') seek(-10);
+      if (e.code === 'Enter') handleFullscreen();
     };
+
     document.addEventListener('fullscreenchange', onFull);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -48,7 +45,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     };
   }, [time, playing]);
 
-  // Load YouTube API and initialize player
   useEffect(() => {
     addToWatchHistory(movie);
     if (!window.YT) {
