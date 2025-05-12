@@ -106,3 +106,11 @@ body::-webkit-scrollbar-thumb {
 .legal-notice {
   @apply text-gray-400 text-xs leading-relaxed;
 }
+/* Hide scrollbars cross-browser */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
