@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MovieCard from './MovieCard';
 import { Movie } from '../../types';
@@ -15,6 +15,16 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
   size = 'medium'
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const [showLeftButton, setShowLeftButton] = useState(false);
+  const [showRightButton, setShowRightButton] = useState(true);
+
+  const checkScrollButtons = () => {
+    if (carouselRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+      setShowLeftButton(scrollLeft > 0);
+      setShowRightButton(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
 
   const scroll = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
@@ -27,6 +37,9 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
         left: scrollAmount,
         behavior: 'smooth',
       });
+
+      // Update button visibility after scroll
+      setTimeout(checkScrollButtons, 300);
     }
   };
 
@@ -35,24 +48,28 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
   }
 
   return (
-    <div className="my-16 max-w-[2000px] mx-auto">
+    <div className="my-8 md:my-16 w-full">
       {/* Carousel Title */}
-      <h2 className="text-3xl md:text-4xl font-bold mb-6 px-6">{title}</h2>
+      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-6 px-4 md:px-6">{title}</h2>
 
-      <div className="relative">
+      <div className="relative group">
         {/* Left Scroll Button */}
-        <button 
-          onClick={() => scroll('left')}
-          className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-black text-white p-4 rounded-full z-10 opacity-50 hover:opacity-100 transition"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft size={32} />
-        </button>
+        {showLeftButton && (
+          <button 
+            onClick={() => scroll('left')}
+            className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/80 text-white p-2 md:p-4 
+              rounded-full z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft size={24} />
+          </button>
+        )}
 
         {/* Movie List (Carousel) */}
         <div 
           ref={carouselRef}
-          className="flex overflow-x-scroll space-x-8 px-6 pb-6 scrollbar-hide"
+          className="flex overflow-x-scroll space-x-4 md:space-x-6 px-4 md:px-6 pb-6 scrollbar-hide"
+          onScroll={checkScrollButtons}
         >
           {movies.map((movie) => (
             <MovieCard key={movie.id} movie={movie} size={size} />
@@ -60,16 +77,19 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
         </div>
 
         {/* Right Scroll Button */}
-        <button 
-          onClick={() => scroll('right')}
-          className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-black text-white p-4 rounded-full z-10 opacity-50 hover:opacity-100 transition"
-          aria-label="Scroll right"
-        >
-          <ChevronRight size={32} />
-        </button>
+        {showRightButton && (
+          <button 
+            onClick={() => scroll('right')}
+            className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/80 text-white p-2 md:p-4 
+              rounded-full z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            aria-label="Scroll right"
+          >
+            <ChevronRight size={24} />
+          </button>
+        )}
       </div>
     </div>
   );
 };
 
-export default MovieCarousel
+export default MovieCarousel;
