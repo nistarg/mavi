@@ -35,7 +35,7 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
   }
 
   return (
-    <div className="my-16">
+    <div className="my-16 max-w-[2000px] mx-auto">
       {/* Carousel Title */}
       <h2 className="text-3xl md:text-4xl font-bold mb-6 px-6">{title}</h2>
 
@@ -52,10 +52,10 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
         {/* Movie List (Carousel) */}
         <div 
           ref={carouselRef}
-          className="flex overflow-x-scroll space-x-8 px-6 pb-6"
+          className="flex overflow-x-scroll space-x-8 px-6 pb-6 scrollbar-hide"
         >
           {movies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} size="large" />
+            <MovieCard key={movie.id} movie={movie} size={size} />
           ))}
         </div>
 
@@ -71,5 +71,3 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
     </div>
   );
 };
-
-export default MovieCarousel;

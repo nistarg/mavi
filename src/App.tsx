@@ -16,7 +16,7 @@ function App() {
       <Router>
         <div className="flex flex-col min-h-screen bg-gray-900 text-white">
           <Navbar />
-          <main className="flex-grow">
+          <main className="flex-grow w-full">
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/movie/:id" element={<MoviePage />} />

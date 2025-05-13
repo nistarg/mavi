@@ -22,13 +22,11 @@ const MoviePage: React.FC = () => {
       try {
         setLoading(true);
         
-        // Try to find the movie in bookmarks first (they have enriched data)
         const bookmarkedMovie = bookmarks.find(m => m.id === id);
         
         if (bookmarkedMovie) {
           setMovie(bookmarkedMovie);
         } else {
-          // If not found, create a basic movie object and enrich it
           const basicMovie: Movie = {
             id: id || '',
             videoId: id || '',
@@ -41,20 +39,16 @@ const MoviePage: React.FC = () => {
             viewCount: '',
           };
           
-          // Fetch related movies to help identify this movie
           const trendingResult = await getTrendingMovies();
           if (trendingResult.data) {
             setRelatedMovies(trendingResult.data);
             
-            // Try to find movie in trending results
             const foundMovie = trendingResult.data.find(m => m.id === id);
             
             if (foundMovie) {
-              // If found, enrich with metadata
               const enrichedMovie = await enrichMovieWithMetadata(foundMovie);
               setMovie(enrichedMovie);
             } else {
-              // If not found, just enrich the basic movie
               const enrichedMovie = await enrichMovieWithMetadata(basicMovie);
               setMovie(enrichedMovie);
             }
@@ -107,7 +101,7 @@ const MoviePage: React.FC = () => {
   
   return (
     <div className="pt-16 bg-black text-white">
-      <div className="container mx-auto px-4">
+      <div className="max-w-[2000px] mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-4">{movie.title}</h1>
           
@@ -222,5 +216,3 @@ const MoviePage: React.FC = () => {
     </div>
   );
 };
-
-export default MoviePage;

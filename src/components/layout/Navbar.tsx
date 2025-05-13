@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
 
   return (
     <nav className={navbarClass}>
-      <div className="container mx-auto px-4 py-4">
+      <div className="max-w-[2000px] mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
             <div className="text-2xl font-bold text-white bg-indigo-600 px-2 py-1 rounded">
@@ -129,5 +129,3 @@ const Navbar: React.FC = () => {
     </nav>
   );
 };
-
-export default Navbar;
