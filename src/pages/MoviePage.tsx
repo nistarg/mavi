@@ -216,3 +216,5 @@ const MoviePage: React.FC = () => {
     </div>
   );
 };
+
+export default MoviePage
