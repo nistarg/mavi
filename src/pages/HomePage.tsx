@@ -6,7 +6,7 @@ import MovieCarousel from '../components/ui/MovieCarousel';
 
 const SLIDE_INTERVAL = 5000;
 const RETRY_DELAY = 5000;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 18;
 
 const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
