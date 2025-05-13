@@ -1,14 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Movie } from '../types';
-import { getTrendingMovies, enrichMovieWithMetadata } from '../services/api';
+import { getTrendingMovies, enrichMovieWithMetadata, searchMovies } from '../services/api';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import MovieCarousel from '../components/ui/MovieCarousel';
 
 const SLIDE_INTERVAL = 5000;
 const RETRY_DELAY = 5000;
 const MAX_RETRIES = 3;
 
+const SUGGESTED_MOVIES = [
+  'Yeh Jawaani Hai Deewani full movie',
+  'Zindagi Na Milegi Dobara full movie',
+  'Golmaal full movie',
+  'Dil Chahta Hai full movie',
+  '3 Idiots full movie',
+  'Chennai Express full movie'
+];
+
 const HomePage: React.FC = () => {
   const [recommendations, setRecommendations] = useState<Movie[]>([]);
+  const [suggestedMovies, setSuggestedMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -29,6 +40,16 @@ const HomePage: React.FC = () => {
       const top = movies.slice(0, 4);
       const enriched = await Promise.all(top.map(movie => enrichMovieWithMetadata(movie)));
       setRecommendations(enriched);
+
+      // Fetch suggested movies
+      const suggestedResults = await Promise.all(
+        SUGGESTED_MOVIES.map(title => searchMovies(title))
+      );
+      const suggested = suggestedResults
+        .map(result => result.data?.[0])
+        .filter((movie): movie is Movie => !!movie);
+      setSuggestedMovies(suggested);
+
       setRetryCount(0);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -99,7 +120,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="relative bg-black">
       {/* Hero Section */}
-      <div className="relative min-h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
+      <div className="relative h-screen w-full overflow-hidden">
         {recommendations.map((movie, idx) => (
           <div
             key={movie.id || idx}
@@ -107,15 +128,15 @@ const HomePage: React.FC = () => {
               ${idx === currentIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           >
             <div
-              className="w-full h-full bg-cover bg-center"
+              className="absolute inset-0 bg-cover bg-center"
               style={{
                 backgroundImage: `url(${movie.backdrop || movie.poster})`,
               }}
             >
-              <div className="bg-gradient-to-r from-black/80 via-transparent to-black absolute inset-0" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/80" />
               <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16 max-w-2xl text-white z-10">
                 <h1 className="text-5xl md:text-7xl font-extrabold mb-4 drop-shadow-lg">{movie.title}</h1>
-                <p className="text-lg md:text-xl mb-6 line-clamp-3">{movie.description}</p>
+                <p className="text-lg md:text-xl mb-6 line-clamp-3">{movie.description || movie.plot}</p>
                 <div className="flex gap-4">
                   <button className="bg-white text-black font-semibold px-6 py-2 rounded hover:bg-gray-200 transition">
                     ▶ Play
@@ -131,37 +152,39 @@ const HomePage: React.FC = () => {
 
         <button
           onClick={prevSlide}
-          className="absolute left-4 md:left-6 bottom-24 md:bottom-12 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
+          className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
         >
           <ChevronLeft className="w-8 h-8 md:w-10 md:h-10" />
         </button>
         <button
           onClick={nextSlide}
-          className="absolute right-4 md:right-6 bottom-24 md:bottom-12 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
+          className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 bg-black/60 p-3 md:p-4 rounded-full hover:bg-black/80 text-white transition z-20"
         >
           <ChevronRight className="w-8 h-8 md:w-10 md:h-10" />
         </button>
       </div>
 
-      {/* Thumbnails Section */}
-      <div className="mt-[-100px] relative z-30 px-4 md:px-12 pb-16">
-        <h2 className="text-white text-2xl font-semibold mb-4">Series</h2>
-        <div className="flex overflow-x-auto space-x-4 scrollbar-hide">
-          {recommendations.map((movie, idx) => (
-            <div
-              key={`thumb-${movie.id || idx}`}
-              className="min-w-[150px] md:min-w-[200px] cursor-pointer hover:scale-105 transition"
-            >
-              <img
-                src={movie.poster || movie.backdrop}
-                alt={movie.title}
-                className="rounded-lg w-full h-auto object-cover"
-              />
-              <p className="mt-2 text-white text-sm md:text-base">{movie.title}</p>
-            </div>
-          ))}
+      {/* Suggested Movies Section */}
+      {suggestedMovies.length > 0 && (
+        <div className="w-full bg-black">
+          <MovieCarousel
+            title="Recommended for You"
+            movies={suggestedMovies}
+            size="large"
+          />
         </div>
-      </div>
+      )}
+
+      {/* Trending Section */}
+      {recommendations.length > 0 && (
+        <div className="w-full bg-black">
+          <MovieCarousel
+            title="Trending Now"
+            movies={recommendations}
+            size="large"
+          />
+        </div>
+      )}
     </div>
   );
 };
