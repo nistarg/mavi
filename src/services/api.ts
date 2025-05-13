@@ -19,7 +19,7 @@ const YOUTUBE_API_KEYS = [
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
-const MAX_RETRIES = 15;
+const MAX_RETRIES = 17;
 const RETRY_DELAY = 300; // ms
 const CACHE_DURATION = 1000 * 60 * 60; // 1h
 
