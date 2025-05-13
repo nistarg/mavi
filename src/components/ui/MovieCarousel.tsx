@@ -71,3 +71,5 @@ const MovieCarousel: React.FC<MovieCarouselProps> = ({
     </div>
   );
 };
+
+export default MovieCarousel
