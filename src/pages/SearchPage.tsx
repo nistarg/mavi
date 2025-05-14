@@ -50,8 +50,11 @@ const SearchPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      // Add "full movie" to the search query
+      const modifiedQuery = `${searchQuery} full movie`;
+      
       const searchParams: SearchParams = {
-        query: searchQuery,
+        query: modifiedQuery,
         language: filters.language,
         genre: filters.genre,
         actor: filters.actor,
@@ -69,7 +72,7 @@ const SearchPage: React.FC = () => {
       
       // Update URL parameters
       const params = new URLSearchParams();
-      params.set('q', searchQuery);
+      params.set('q', modifiedQuery);
       if (filters.language) params.set('language', filters.language);
       if (filters.genre) params.set('genre', filters.genre);
       if (filters.actor) params.set('actor', filters.actor);
@@ -198,3 +201,4 @@ const SearchPage: React.FC = () => {
 };
 
 export default SearchPage;
+
