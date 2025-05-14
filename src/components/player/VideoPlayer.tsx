@@ -38,7 +38,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
   const speedTimeoutRef = useRef<number>();
   const { addToWatchHistory } = useAppContext();
 
-  // Initialize player and events
   useEffect(() => {
     addToWatchHistory(movie);
     createPlayer();
@@ -50,7 +49,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     };
   }, [movie]);
 
-  // Auto-hide controls
   const showCtrls = () => {
     setControlsVisible(true);
     clearTimeout(hideTimeout.current);
@@ -101,7 +99,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
         onError: () => setError('Playback error'),
       },
     });
-    // Track time
     setInterval(() => {
       if (playerInstance.current?.getCurrentTime) {
         setTime(playerInstance.current.getCurrentTime());
@@ -111,8 +108,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
 
   const togglePlay = () => {
     if (!playerInstance.current) return;
-    if (playing) playerInstance.current.pauseVideo();
-    else playerInstance.current.playVideo();
+    playing ? playerInstance.current.pauseVideo() : playerInstance.current.playVideo();
   };
 
   const toggleMute = () => {
@@ -180,22 +176,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
 
       {loaded && controlsVisible && (
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 p-4">
-          {/* Progress Bar */}
-          <div className="w-full h-1 bg-gray-700 rounded mb-4 cursor-pointer" onClick={() => seek(0)}>
+          <div className="w-full h-1 bg-gray-700 rounded mb-4 cursor-pointer" onClick={handleProgressClick}>
             <div
               className="h-full bg-red-600 rounded"
               style={{ width: `${(time / duration) * 100}%` }}
             />
           </div>
 
-          {/* Controls */}
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center space-x-4">
               <button onClick={togglePlay} className="p-2 bg-white/20 rounded-full">
                 {playing ? <Pause size={24} /> : <Play size={24} />}
               </button>
 
-              {/* Rewind Speed */}
               <button
                 onMouseDown={() => handleSpeedMouseDown('down')}
                 onMouseUp={handleSpeedMouseUp}
@@ -214,7 +207,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
                 <SkipForward size={20} />
               </button>
 
-              {/* Fast-Forward Speed */}
               <button
                 onMouseDown={() => handleSpeedMouseDown('up')}
                 onMouseUp={handleSpeedMouseUp}
@@ -225,5 +217,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
                 <span className="ml-1 text-sm">{playbackRate}×</span>
               </button>
 
-              <button onClick={toggleMute} className="p-2 bg-white/20 round
+              <button onClick={toggleMute} className="p-2 bg-white/20 rounded-full">
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+              </button>
 
+              <span className="ml-4 text-sm">
+                {format(time)} / {format(duration)}
+              </span>
+            </div>
+
+            <button onClick={handleFullscreen} className="p-2 bg-white/20 rounded-full">
+              <Maximize size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default VideoPlayer;
