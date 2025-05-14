@@ -7,8 +7,6 @@ const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
   'Zindagi Na Milegi Dobara full movie',
   'Golmaal full movie',
-  'Dil Chahta Hai full movie',
-  '3 Idiots full movie',
   'Chennai Express full movie'
 ];
 
@@ -83,26 +81,6 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="bg-black text-white overflow-x-hidden">
-      {/* Hero Section */}
-      <div className="h-[60vh] w-full bg-cover bg-center relative" 
-           style={{ backgroundImage: `url(${recommendations[0]?.backdrop || recommendations[0]?.poster})` }}>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/80" />
-        <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16 max-w-2xl text-white z-10">
-          <h1 className="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-lg">
-            {recommendations[0]?.title}
-          </h1>
-          <p className="text-lg md:text-xl mb-6 line-clamp-3">{recommendations[0]?.description || recommendations[0]?.plot}</p>
-          <div className="flex gap-4">
-            <button className="bg-white text-black font-semibold px-6 py-2 rounded hover:bg-gray-200 transition">
-              ▶ Play
-            </button>
-            <button className="bg-gray-700/60 text-white font-semibold px-6 py-2 rounded hover:bg-gray-600 transition">
-              ℹ More Info
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Suggested Movies Section */}
       {suggestedMovies.length > 0 && (
         <div className="bg-black py-8 px-4">
