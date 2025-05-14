@@ -26,12 +26,10 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
 
   useEffect(() => {
     if (movie.videoId) {
-      // Try to load HD thumbnail
       const hdUrl = `https://img.youtube.com/vi/${movie.videoId}/maxresdefault.jpg`;
       const img = new Image();
       img.onload = () => setThumbnailUrl(hdUrl);
       img.onerror = () => {
-        // Fallback to high quality thumbnail
         setThumbnailUrl(`https://img.youtube.com/vi/${movie.videoId}/hqdefault.jpg`);
       };
       img.src = hdUrl;
@@ -39,73 +37,75 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
   }, [movie.videoId]);
 
   const sizeClasses = {
-    small: 'w-full sm:w-48 md:w-56 lg:w-64',
-    medium: 'w-full sm:w-64 md:w-72 lg:w-80',
-    large: 'w-full sm:w-72 md:w-80 lg:w-96',
+    small: 'w-[200px] sm:w-[220px] md:w-[240px]',
+    medium: 'w-[240px] sm:w-[260px] md:w-[280px]',
+    large: 'w-[280px] sm:w-[300px] md:w-[320px]',
   };
 
   return (
     <div
-      className={`relative ${sizeClasses[size]} transition-transform duration-300 ease-in-out transform hover:scale-105 group`}
+      className={`relative ${sizeClasses[size]} transition-transform duration-300 ease-out transform hover:scale-110 hover:z-10`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
     >
-      <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg bg-gray-900">
+      <div className="relative aspect-[2/3] rounded-sm overflow-hidden bg-black/40">
         {/* Poster/Thumbnail */}
         {imageError ? (
-          <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-400">
+          <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-600">
             <AlertCircle size={48} />
           </div>
         ) : (
           <img
             src={thumbnailUrl}
             alt={movie.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-300"
             loading="lazy"
             onError={() => setImageError(true)}
           />
         )}
 
         {/* Hover Overlay */}
-        <div className={`absolute inset-0 flex flex-col justify-between p-4 bg-black/70 text-white 
-          ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-          {/* Top row: duration and bookmark */}
+        <div 
+          className={`absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-t from-black via-black/80 to-transparent
+            ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+        >
+          {/* Top row */}
           <div className="flex justify-between items-start">
-            <span className="text-xs bg-red-600 px-3 py-1 rounded-full flex items-center">
-              <Clock size={14} className="mr-2" />
-              {movie.durationInMinutes} min
+            <span className="text-xs bg-red-600 px-2 py-1 rounded-sm flex items-center">
+              <Clock size={12} className="mr-1" />
+              {movie.durationInMinutes}m
             </span>
             <button
               onClick={handleBookmark}
-              className="hover:text-red-500 transition"
-              aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+              className="text-white hover:text-red-500 transition-colors"
+              aria-label={isBookmarked ? 'Remove from bookmarks' : 'Add to bookmarks'}
             >
               {isBookmarked ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
             </button>
           </div>
 
-          {/* Bottom row: Play + Rating */}
+          {/* Bottom content */}
           <div>
             {movie.imdbRating && (
-              <div className="flex items-center mb-3 text-yellow-400">
-                <Star size={18} className="mr-2" />
-                <span className="text-lg font-semibold">{movie.imdbRating}</span>
+              <div className="flex items-center mb-2 text-yellow-400">
+                <Star size={16} className="mr-1" />
+                <span className="font-semibold">{movie.imdbRating}</span>
               </div>
             )}
-            <div className="flex items-center justify-center bg-white text-black hover:bg-gray-200 rounded-full 
-              py-2 px-6 text-base sm:text-lg font-bold transition shadow-lg">
-              <Play size={22} className="mr-3" />
+            <button className="w-full flex items-center justify-center bg-white hover:bg-white/90 text-black font-semibold 
+              py-2 px-4 rounded-sm transition-colors">
+              <Play size={20} className="mr-2" />
               Play
-            </div>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Title & Year below card */}
-      <div className="mt-4 px-2">
-        <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2">{movie.title}</h3>
-        {movie.year && <p className="text-sm text-gray-300 mt-1">{movie.year}</p>}
+      {/* Title & Year */}
+      <div className="mt-2 px-1">
+        <h3 className="text-sm font-medium text-gray-200 line-clamp-1">{movie.title}</h3>
+        {movie.year && <p className="text-xs text-gray-400">{movie.year}</p>}
       </div>
     </div>
   );

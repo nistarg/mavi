@@ -3,18 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --primary: #6366F1;
-  --primary-dark: #4F46E5;
-  --accent: #EC4899;
-  --accent-dark: #DB2777;
-  --background: #0F172A;
-  --card: #1E293B;
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
+  --primary: #E50914;
+  --primary-dark: #B20710;
+  --background: #141414;
+  --surface: #1F1F1F;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8C8C8C;
 }
 
 body {
-  @apply bg-gray-900 text-white font-sans overflow-x-hidden;
+  @apply bg-[#141414] text-white font-sans antialiased;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) var(--background);
 }
@@ -33,17 +31,21 @@ body::-webkit-scrollbar-thumb {
   border: 2px solid var(--background);
 }
 
+.text-shadow-lg {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 @layer components {
   .movie-card {
-    @apply relative overflow-hidden rounded-md transition-all duration-300;
+    @apply relative overflow-hidden rounded-sm transition-all duration-300;
   }
   
   .movie-card:hover {
-    @apply transform scale-105 z-10 shadow-xl;
+    @apply transform scale-110 z-10;
   }
   
   .movie-card-overlay {
-    @apply absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 transition-opacity duration-300;
+    @apply absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 transition-opacity duration-300;
   }
   
   .movie-card:hover .movie-card-overlay {
@@ -66,51 +68,24 @@ body::-webkit-scrollbar-thumb {
   }
   
   .carousel-button {
-    @apply absolute z-10 top-1/2 -translate-y-1/2 w-10 h-20 bg-black/50 hover:bg-black/70 transition-colors flex items-center justify-center rounded-md;
+    @apply absolute z-10 top-1/2 -translate-y-1/2 w-12 h-full bg-black/50 hover:bg-black/70 
+      transition-colors flex items-center justify-center;
   }
   
   .carousel-button-left {
-    @apply left-0 rounded-r-md;
+    @apply left-0;
   }
   
   .carousel-button-right {
-    @apply right-0 rounded-l-md;
-  }
-  
-  .custom-video-player {
-    @apply rounded-md overflow-hidden;
-  }
-  
-  .custom-video-controls {
-    @apply absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-opacity duration-300;
-  }
-  
-  .custom-video-player:hover .custom-video-controls {
-    @apply opacity-100;
-  }
-  
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+    @apply right-0;
   }
 }
 
-.hero-gradient {
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 1) 100%);
-}
-
-.legal-notice {
-  @apply text-gray-400 text-xs leading-relaxed;
-}
-/* Hide scrollbars cross-browser */
 .scrollbar-hide {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none;  /* IE and Edge */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
+
 .scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  display: none;
 }

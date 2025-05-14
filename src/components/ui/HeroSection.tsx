@@ -15,24 +15,29 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
   };
 
   return (
-    <div className="relative w-full aspect-video text-white overflow-hidden rounded-lg shadow-lg">
+    <div className="relative w-full h-[95vh] text-white">
       {/* Background Image */}
-      <img
-        src={movie.poster || movie.thumbnail}
-        alt={movie.title}
-        className="absolute inset-0 w-full h-full object-cover object-center"
-        loading="lazy"
-        decoding="async"
-      />
-      {/* Dark Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent z-10" />
+      <div className="absolute inset-0">
+        <img
+          src={movie.poster || movie.thumbnail}
+          alt={movie.title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+        {/* Netflix-style overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+      </div>
 
       {/* Content */}
-      <div className="relative z-20 flex flex-col justify-center h-full px-8 md:px-16 max-w-5xl">
+      <div className="relative h-full flex flex-col justify-center px-4 sm:px-8 md:px-16 max-w-7xl mx-auto">
         {/* Title */}
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 drop-shadow-md">{movie.title}</h1>
+        <h1 className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-bold mb-6 text-shadow-lg max-w-3xl">
+          {movie.title}
+        </h1>
 
-        {/* Meta Info: Rating, Duration, Year */}
+        {/* Meta Info */}
         <div className="flex items-center text-lg text-gray-300 gap-6 mb-4">
           {movie.imdbRating && (
             <div className="flex items-center gap-2 text-yellow-400">
@@ -49,32 +54,34 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
 
         {/* Genres */}
         {movie.genre && (
-          <div className="flex flex-wrap gap-4 mb-5">
+          <div className="flex flex-wrap gap-3 mb-6">
             {movie.genre.split(',').slice(0, 3).map((g, i) => (
-              <span key={i} className="bg-white/20 px-4 py-2 rounded-full text-sm font-medium">{g.trim()}</span>
+              <span key={i} className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-sm text-sm">
+                {g.trim()}
+              </span>
             ))}
           </div>
         )}
 
         {/* Plot */}
         {movie.plot && (
-          <p className="text-lg text-gray-300 mb-8 line-clamp-4">{movie.plot}</p>
+          <p className="text-lg text-gray-300 mb-8 max-w-2xl line-clamp-3">{movie.plot}</p>
         )}
 
         {/* Buttons */}
-        <div className="flex gap-6">
+        <div className="flex gap-4">
           <button
             onClick={handlePlay}
-            className="flex items-center px-8 py-3 bg-white text-black font-semibold text-lg rounded-xl hover:bg-gray-200 transition duration-300"
+            className="flex items-center px-8 py-3 bg-white hover:bg-white/90 text-black font-semibold text-xl rounded transition-colors"
           >
-            <Play size={24} className="mr-3" />
+            <Play size={24} className="mr-2" />
             Play
           </button>
           <button
             onClick={() => navigate(`/movie/${movie.id}`)}
-            className="flex items-center px-8 py-3 bg-white/30 hover:bg-white/40 text-white font-semibold text-lg rounded-xl transition duration-300"
+            className="flex items-center px-8 py-3 bg-gray-500/30 hover:bg-gray-500/40 text-white font-semibold text-xl rounded transition-colors"
           >
-            <Info size={24} className="mr-3" />
+            <Info size={24} className="mr-2" />
             More Info
           </button>
         </div>
