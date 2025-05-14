@@ -143,11 +143,14 @@ const MoviePage: React.FC = () => {
         </div>
       </div>
       
-      <div className="max-w-screen-xl mx-auto px-4 py-12">
+      <div className="max-w-screen-xl mx-auto px-4 py-8">
         {/* Video Player and Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2">
-            <VideoPlayer movie={movie} autoplay={true} />
+            {/* Make the video player larger by removing unnecessary padding */}
+            <div className="relative aspect-video w-full mb-4">
+              <VideoPlayer movie={movie} autoplay={true} />
+            </div>
           </div>
           
           <div>
