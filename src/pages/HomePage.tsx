@@ -5,8 +5,8 @@ import MovieCarousel from '../components/ui/MovieCarousel';
 
 const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
-  'Zindagi Na Milegi Dobara movie hd',
-  'Golmaal fun unlimited full movie',
+  'ajab prem ki ghazab kahani full movie',
+  'jab we met full movie'
   'phir hera pheri full movie'
 ];
 
