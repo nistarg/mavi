@@ -52,6 +52,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     hideTimeout.current = window.setTimeout(() => setControlsVisible(false), 3000);
   };
 
+  // Fullscreen handler
   const handleFullscreen = () => {
     if (!containerRef.current) return;
     document.fullscreenElement
@@ -59,6 +60,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
       : containerRef.current.requestFullscreen();
   };
 
+  // Progress bar click
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!playerInstance.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -66,12 +68,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     playerInstance.current.seekTo(pct * duration, true);
   };
 
+  // Seek function
   const seek = (offset: number) => {
     if (!playerInstance.current) return;
     const newTime = Math.min(Math.max(time + offset, 0), duration);
     playerInstance.current.seekTo(newTime, true);
   };
 
+  // Play/pause toggle
   const togglePlay = () => {
     if (!playerInstance.current) return;
     playing
@@ -79,6 +83,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
       : playerInstance.current.playVideo();
   };
 
+  // Mute toggle
   const toggleMute = () => {
     if (!playerInstance.current) return;
     if (isMuted) {
@@ -97,31 +102,37 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     setPlaybackRate(rate);
   };
 
+  // Initialize YouTube player
   const initPlayer = () => {
     if (!playerRef.current) return;
     playerRef.current.innerHTML = '';
     playerInstance.current = new window.YT.Player(playerRef.current, {
-      height: '100%', width: '100%', videoId: movie.videoId,
-      playerVars: { autoplay: autoplay?1:0, controls:0, modestbranding:1, rel:0, playsinline:1 },
+      height: '100%',
+      width: '100%',
+      videoId: movie.videoId,
+      playerVars: { autoplay: autoplay ? 1 : 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1 },
       events: {
-        onReady: (e:any) => {
+        onReady: (e: any) => {
           setLoaded(true);
           setDuration(e.target.getDuration());
           e.target.setPlaybackRate(playbackRate);
           if (autoplay) e.target.playVideo();
         },
-        onStateChange: (e:any) => {
-          setPlaying(e.data===window.YT.PlayerState.PLAYING);
-          if (e.data===window.YT.PlayerState.ENDED) setPlaying(false);
+        onStateChange: (e: any) => {
+          setPlaying(e.data === window.YT.PlayerState.PLAYING);
+          if (e.data === window.YT.PlayerState.ENDED) setPlaying(false);
         },
         onError: () => setError('Video playback error')
       }
     });
-    setInterval(()=>{
-      if(playerInstance.current?.getCurrentTime) setTime(playerInstance.current.getCurrentTime());
-    },500);
+    setInterval(() => {
+      if (playerInstance.current?.getCurrentTime) {
+        setTime(playerInstance.current.getCurrentTime());
+      }
+    }, 500);
   };
 
+  // Create or reload player
   const createPlayer = () => {
     if (!playerRef.current || !movie.videoId) { setError('Video unavailable'); return; }
     if (!window.YT) {
@@ -129,69 +140,144 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
       tag.src = 'https://www.youtube.com/iframe_api';
       document.body.appendChild(tag);
       (window as any).onYouTubeIframeAPIReady = initPlayer;
-    } else initPlayer();
+    } else {
+      initPlayer();
+    }
   };
 
-  // Fullscreen & keyboard
-  useEffect(()=>{
-    const onFull=()=>{ document.body.style.cursor = document.fullscreenElement?'none':'default'; };
-    const onKey=(e:KeyboardEvent)=>{
-      if(!containerRef.current) return;
-      switch(e.code){
-        case 'Space': e.preventDefault(); togglePlay(); break;
-        case 'ArrowRight': seek(10); break;
-        case 'ArrowLeft': seek(-10); break;
-        case 'Enter': handleFullscreen(); break;
-        case 'KeyM': toggleMute(); break;
+  // Effects: fullscreen & keyboard shortcuts
+  useEffect(() => {
+    const onFull = () => {
+      document.body.style.cursor = document.fullscreenElement ? 'none' : 'default';
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!containerRef.current) return;
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          seek(10);
+          break;
+        case 'ArrowLeft':
+          seek(-10);
+          break;
+        case 'Enter':
+          handleFullscreen();
+          break;
+        case 'KeyM':
+          toggleMute();
+          break;
       }
     };
     document.addEventListener('fullscreenchange', onFull);
     document.addEventListener('keydown', onKey);
-    return()=>{ document.removeEventListener('fullscreenchange', onFull); document.removeEventListener('keydown', onKey); };
-  },[time,playing]);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFull);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [time, playing]);
 
-  // Init player & history
-  useEffect(()=>{
+  // Effects: initialize player and history
+  useEffect(() => {
     addToWatchHistory(movie);
     createPlayer();
-    return()=>{ clearTimeout(hideTimeout.current); if(playerInstance.current?.destroy) playerInstance.current.destroy(); };
-  },[movie]);
+    return () => {
+      clearTimeout(hideTimeout.current);
+      if (playerInstance.current?.destroy) {
+        playerInstance.current.destroy();
+      }
+    };
+  }, [movie]);
 
-  if(error){ return <div className="relative w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center"><p className="text-red-500">{error}</p></div>; }
+  // Error state
+  if (error) {
+    return (
+      <div className="relative w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
 
+  // Main render
   return (
-    <div ref={containerRef} className="relative w-full aspect-video max-h-[90vh] bg-black overflow-hidden mx-auto rounded-lg shadow-lg" onMouseMove={showCtrls}>
+    <div
+      ref={containerRef}
+      className="relative w-full aspect-video max-h-[90vh] bg-black overflow-hidden mx-auto rounded-lg shadow-lg"
+      onMouseMove={showCtrls}
+    >
       <div ref={playerRef} className="w-full h-full" onClick={togglePlay} />
+
       {loaded && controlsVisible && (
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-6">
-          <div className="w-full h-1 bg-gray-700 rounded cursor-pointer mb-4" onClick={handleProgressClick}>
-            <div className="h-full bg-red-600 rounded" style={{width:`${(time/duration)*100}%`}} />
+          {/* Progress Bar */}
+          <div
+            className="w-full h-1 bg-gray-700 rounded cursor-pointer mb-4"
+            onClick={handleProgressClick}
+          >
+            <div
+              className="h-full bg-red-600 rounded"
+              style={{ width: `${(time / duration) * 100}%` }}
+            />
           </div>
+
+          {/* Control Buttons */}
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center space-x-4 md:space-x-6">
-              <button onClick={togglePlay} className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
-                {playing?<Pause size={24}/>:<Play size={24}/>}</n              </button>
-              <button onClick={()=>seek(-10)} className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
-                <SkipBack size={20}/> <span className="ml-1">10</span>
+              <button
+                onClick={togglePlay}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
+              >
+                {playing ? <Pause size={24} /> : <Play size={24} />}
               </button>
-              <button onClick={()=>seek(10)} className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
-                <span className="mr-1">10</span> <SkipForward size={20}/>
+
+              <button
+                onClick={() => seek(-10)}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center"
+              >
+                <SkipBack size={20} />
+                <span className="ml-1">10</span>
               </button>
-              <button onClick={toggleMute} className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
-                {isMuted?<VolumeX size={20}/>:<Volume2 size={20}/>}\
+
+              <button
+                onClick={() => seek(10)}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center"
+              >
+                <span className="mr-1">10</span>
+                <SkipForward size={20} />
               </button>
+
+              <button
+                onClick={toggleMute}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
+              >
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+              </button>
+
               {/* Speed selector */}
               <select
                 value={playbackRate}
-                onChange={e=>changeSpeed(Number(e.target.value))}
+                onChange={e => changeSpeed(Number(e.target.value))}
                 className="bg-gray-800 text-white p-1 rounded"
               >
-                {SPEED_OPTIONS.map(rate=><option key={rate} value={rate}>{rate}×</option>)}
+                {SPEED_OPTIONS.map(rate => (
+                  <option key={rate} value={rate}>
+                    {rate}×
+                  </option>
+                ))}
               </select>
-              <span>{format(time)} / {format(duration)}</span>
+
+              <span className="ml-2 text-sm">
+                {format(time)} / {format(duration)}
+              </span>
             </div>
-            <button onClick={handleFullscreen} className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition">
-              <Maximize size={20}/>
+
+            <button
+              onClick={handleFullscreen}
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
+            >
+              <Maximize size={20} />
             </button>
           </div>
         </div>
@@ -201,3 +287,4 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
 };
 
 export default VideoPlayer;
+
