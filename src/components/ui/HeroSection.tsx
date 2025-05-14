@@ -15,7 +15,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
   };
 
   return (
-    <div className="relative w-full h-screen text-white overflow-hidden">
+    <div className="relative w-full h-[70vh] sm:h-[80vh] text-white overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img
@@ -25,20 +25,20 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
           loading="lazy"
           decoding="async"
         />
-        {/* Netflix-like gradient overlays */}
+        {/* Gradient overlays */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-12 lg:px-20 max-w-[1400px] mx-auto">
+      <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-12 lg:px-16 max-w-[1200px] mx-auto">
         {/* Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold mb-6 drop-shadow-lg max-w-4xl leading-tight">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold mb-6 drop-shadow-lg max-w-3xl leading-tight">
           {movie.title}
         </h1>
 
         {/* Meta Info */}
-        <div className="flex flex-wrap items-center text-base sm:text-lg text-gray-300 gap-6 mb-4">
+        <div className="flex flex-wrap items-center text-sm sm:text-base text-gray-300 gap-6 mb-4">
           {movie.imdbRating && (
             <div className="flex items-center gap-2 text-yellow-400">
               <Star size={20} />
@@ -67,7 +67,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ movie }) => {
 
         {/* Plot */}
         {movie.plot && (
-          <p className="text-base sm:text-lg text-gray-300 mb-8 max-w-2xl line-clamp-4">
+          <p className="text-sm sm:text-base text-gray-300 mb-8 max-w-2xl line-clamp-4">
             {movie.plot}
           </p>
         )}
