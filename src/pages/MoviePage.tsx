@@ -213,6 +213,8 @@ const MoviePage: React.FC = () => {
           <MovieCarousel 
             title="You Might Also Like" 
             movies={relatedMovies.filter(m => m.id !== movie.id).slice(0, 10)} 
+            size="large" // Make carousel larger
+            className="py-12" // Add padding to make it bigger visually
           />
         </div>
         
