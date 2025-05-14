@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Movie } from '../types';
-import { getTrendingMovies, enrichMovieWithMetadata, searchMovies } from '../services/api';
+import { searchMovies } from '../services/api';
 import MovieCarousel from '../components/ui/MovieCarousel';
 
 const SUGGESTED_MOVIES = [
@@ -11,24 +11,14 @@ const SUGGESTED_MOVIES = [
 ];
 
 const HomePage: React.FC = () => {
-  const [recommendations, setRecommendations] = useState<Movie[]>([]);
   const [suggestedMovies, setSuggestedMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRecs = async () => {
+  const fetchSuggestedMovies = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getTrendingMovies();
-      if (res.error) throw new Error(res.error);
-
-      const movies = res.data || [];
-      if (movies.length === 0) throw new Error('No movies found. Please try again later.');
-
-      const top = movies.slice(0, 4);
-      const enriched = await Promise.all(top.map(movie => enrichMovieWithMetadata(movie)));
-      setRecommendations(enriched);
 
       // Fetch suggested movies
       const suggestedResults = await Promise.all(
@@ -47,11 +37,11 @@ const HomePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchRecs();
+    fetchSuggestedMovies();
   }, []);
 
   const handleRetry = () => {
-    fetchRecs();
+    fetchSuggestedMovies();
   };
 
   if (loading) {
@@ -87,17 +77,6 @@ const HomePage: React.FC = () => {
           <h2 className="text-2xl font-semibold mb-4">Recommended for You</h2>
           <MovieCarousel
             movies={suggestedMovies}
-            size="large"
-          />
-        </div>
-      )}
-
-      {/* Trending Movies Section */}
-      {recommendations.length > 0 && (
-        <div className="bg-black py-8 px-4">
-          <h2 className="text-2xl font-semibold mb-4">Trending Now</h2>
-          <MovieCarousel
-            movies={recommendations}
             size="large"
           />
         </div>
