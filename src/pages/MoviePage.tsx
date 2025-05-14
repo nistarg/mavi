@@ -105,7 +105,7 @@ const MoviePage: React.FC = () => {
       <div className="relative">
         <div className="absolute inset-0 bg-gradient-to-b from-black opacity-60"></div>
         <img
-          className="w-full h-[300px] md:h-[400px] object-cover"
+          className="w-full h-[200px] md:h-[250px] object-cover" // Adjusted height
           src={movie.thumbnail || 'https://via.placeholder.com/1920x400'}
           alt={movie.title}
         />
