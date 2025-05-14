@@ -5,6 +5,14 @@ const YOUTUBE_API_KEYS = [
   import.meta.env.VITE_YOUTUBE_API_KEY_1,
   import.meta.env.VITE_YOUTUBE_API_KEY_2,
   import.meta.env.VITE_YOUTUBE_API_KEY_3,
+'AIzaSyBBhGS60rXPxSKf_kjrzW4AuZIMwF3mk3E',
+'AIzaSyC_2QM86c1ZDwrFq5TrDHYw91wuHAAXtu0',
+'AIzaSyDxrMr6aBkVCb91-Kp5ltsumOIbzK6bzN0',
+'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
+'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
+'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
+'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
+'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
