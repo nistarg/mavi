@@ -105,7 +105,7 @@ const MoviePage: React.FC = () => {
       <div className="relative">
         <div className="absolute inset-0 bg-gradient-to-b from-black opacity-60"></div>
         <img
-          className="w-full h-[400px] object-cover"
+          className="w-full h-[300px] md:h-[400px] object-cover"
           src={movie.thumbnail || 'https://via.placeholder.com/1920x400'}
           alt={movie.title}
         />
@@ -143,7 +143,7 @@ const MoviePage: React.FC = () => {
         </div>
       </div>
       
-      <div className="max-w-[2000px] mx-auto px-4 py-12">
+      <div className="max-w-screen-xl mx-auto px-4 py-12">
         {/* Video Player and Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2">
