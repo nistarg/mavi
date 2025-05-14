@@ -6,9 +6,7 @@ import {
   SkipBack,
   Maximize,
   Volume2,
-  VolumeX,
-  FastForward,
-  Rewind,
+  VolumeX
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { Movie } from '../../types';
@@ -17,8 +15,6 @@ interface VideoPlayerProps {
   movie: Movie;
   autoplay?: boolean;
 }
-
-const SPEED_LEVELS = [1, 2, 4, 8];
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,31 +26,120 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [playbackRate, setPlaybackRate] = useState(1);
 
   const hideTimeout = useRef<number>();
-  const speedTimeoutRef = useRef<number>();
   const { addToWatchHistory } = useAppContext();
 
-  useEffect(() => {
-    addToWatchHistory(movie);
-    createPlayer();
-    return () => {
-      clearTimeout(hideTimeout.current);
-      clearTimeout(speedTimeoutRef.current);
-      document.body.style.cursor = 'default';
-      if (playerInstance.current?.destroy) playerInstance.current.destroy();
-    };
-  }, [movie]);
+  // Utility: format seconds into HH:MM:SS or MM:SS
+  const format = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    return h > 0
+      ? `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+      : `${m}:${sec.toString().padStart(2, '0')}`;
+  };
 
+  // Show controls on mouse move
   const showCtrls = () => {
     setControlsVisible(true);
     clearTimeout(hideTimeout.current);
     hideTimeout.current = window.setTimeout(() => setControlsVisible(false), 3000);
   };
 
+  // Fullscreen handler
+  const handleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen();
+    }
+  };
+
+  // Click-to-seek on progress bar
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!playerInstance.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    playerInstance.current.seekTo(pct * duration, true);
+  };
+
+  // Seek by offset seconds
+  const seek = (offset: number) => {
+    if (!playerInstance.current) return;
+    const newTime = Math.min(Math.max(time + offset, 0), duration);
+    playerInstance.current.seekTo(newTime, true);
+  };
+
+  // Toggle play/pause
+  const togglePlay = () => {
+    if (!playerInstance.current) return;
+    playing
+      ? playerInstance.current.pauseVideo()
+      : playerInstance.current.playVideo();
+  };
+
+  // Toggle mute
+  const toggleMute = () => {
+    if (!playerInstance.current) return;
+    if (isMuted) {
+      playerInstance.current.unMute();
+      setIsMuted(false);
+    } else {
+      playerInstance.current.mute();
+      setIsMuted(true);
+    }
+  };
+
+  // Initialize YouTube player
+  const initPlayer = () => {
+    if (!playerRef.current) return;
+    playerRef.current.innerHTML = '';
+    playerInstance.current = new window.YT.Player(playerRef.current, {
+      height: '100%',
+      width: '100%',
+      videoId: movie.videoId,
+      playerVars: {
+        autoplay: autoplay ? 1 : 0,
+        controls: 0,
+        modestbranding: 1,
+        rel: 0,
+        showinfo: 0,
+        playsinline: 1
+      },
+      events: {
+        onReady: (e: any) => {
+          setLoaded(true);
+          setDuration(e.target.getDuration());
+          if (autoplay) e.target.playVideo();
+        },
+        onStateChange: (e: any) => {
+          setPlaying(e.data === window.YT.PlayerState.PLAYING);
+          if (e.data === window.YT.PlayerState.ENDED) {
+            setPlaying(false);
+            setTime(0);
+          }
+        },
+        onError: (e: any) => {
+          setError('Video playback error');
+          console.error('Player error:', e.data);
+        }
+      }
+    });
+
+    // Update current time every 500ms
+    setInterval(() => {
+      if (playerInstance.current?.getCurrentTime) {
+        setTime(playerInstance.current.getCurrentTime());
+      }
+    }, 500);
+  };
+
+  // Create or reload the player when movie changes
   const createPlayer = () => {
     if (!playerRef.current || !movie.videoId) {
       setError('Video unavailable');
@@ -70,163 +155,134 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ movie, autoplay = false }) =>
     }
   };
 
-  const initPlayer = () => {
-    playerRef.current!.innerHTML = '';
-    playerInstance.current = new window.YT.Player(playerRef.current, {
-      height: '100%',
-      width: '100%',
-      videoId: movie.videoId,
-      playerVars: {
-        autoplay: autoplay ? 1 : 0,
-        controls: 0,
-        modestbranding: 1,
-        rel: 0,
-        showinfo: 0,
-        playsinline: 1,
-      },
-      events: {
-        onReady: (e: any) => {
-          setLoaded(true);
-          setDuration(e.target.getDuration());
-          e.target.setPlaybackRate(playbackRate);
-          if (autoplay) e.target.playVideo();
-        },
-        onStateChange: (e: any) => {
-          setPlaying(e.data === window.YT.PlayerState.PLAYING);
-          if (e.data === window.YT.PlayerState.PLAYING) showCtrls();
-          if (e.data === window.YT.PlayerState.ENDED) setPlaying(false);
-        },
-        onError: () => setError('Playback error'),
-      },
-    });
-    setInterval(() => {
-      if (playerInstance.current?.getCurrentTime) {
-        setTime(playerInstance.current.getCurrentTime());
+  // Effect: handle fullscreenchange & keyboard shortcuts
+  useEffect(() => {
+    const onFull = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+      document.body.style.cursor = document.fullscreenElement ? 'none' : 'default';
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!containerRef.current) return;
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          seek(10);
+          break;
+        case 'ArrowLeft':
+          seek(-10);
+          break;
+        case 'Enter':
+          handleFullscreen();
+          break;
+        case 'KeyM':
+          toggleMute();
+          break;
       }
-    }, 500);
-  };
+    };
 
-  const togglePlay = () => {
-    if (!playerInstance.current) return;
-    playing ? playerInstance.current.pauseVideo() : playerInstance.current.playVideo();
-  };
+    document.addEventListener('fullscreenchange', onFull);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFull);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [time, playing]);
 
-  const toggleMute = () => {
-    if (!playerInstance.current) return;
-    if (isMuted) {
-      playerInstance.current.unMute();
-      setIsMuted(false);
-    } else {
-      playerInstance.current.mute();
-      setIsMuted(true);
-    }
-  };
+  // Effect: load player and register history on mount or movie change
+  useEffect(() => {
+    addToWatchHistory(movie);
+    createPlayer();
+    return () => {
+      clearTimeout(hideTimeout.current);
+      document.body.style.cursor = 'default';
+      if (playerInstance.current?.destroy) {
+        playerInstance.current.destroy();
+      }
+    };
+  }, [movie]);
 
-  const seek = (offset: number) => {
-    if (!playerInstance.current) return;
-    const newTime = Math.min(Math.max(time + offset, 0), duration);
-    playerInstance.current.seekTo(newTime, true);
-  };
-
-  const changeRate = (dir: 'up' | 'down') => {
-    setPlaybackRate(prev => {
-      const idx = SPEED_LEVELS.indexOf(prev);
-      let newIdx = dir === 'up' ? idx + 1 : idx - 1;
-      if (newIdx >= SPEED_LEVELS.length) newIdx = 0;
-      if (newIdx < 0) newIdx = SPEED_LEVELS.length - 1;
-      const rate = SPEED_LEVELS[newIdx];
-      playerInstance.current?.setPlaybackRate(rate);
-      return rate;
-    });
-  };
-
-  const handleSpeedMouseDown = (dir: 'up' | 'down') => {
-    changeRate(dir);
-    speedTimeoutRef.current = window.setTimeout(() => handleSpeedMouseDown(dir), 500);
-  };
-
-  const handleSpeedMouseUp = () => {
-    clearTimeout(speedTimeoutRef.current);
-  };
-
-  const format = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = Math.floor(s % 60);
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
-      : `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
+  // Render error state
   if (error) {
     return (
-      <div className="relative w-full aspect-video bg-gray-900 flex items-center justify-center">
-        <p className="text-red-500">{error}</p>
+      <div className="relative w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
+        <div className="text-center text-red-500">
+          <p className="text-xl font-semibold mb-2">Error</p>
+          <p>{error}</p>
+        </div>
       </div>
     );
   }
 
+  // Main render
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-video bg-black overflow-hidden rounded-lg"
+      className="relative w-full aspect-video max-h-[90vh] bg-black overflow-hidden mx-auto rounded-lg shadow-lg"
       onMouseMove={showCtrls}
     >
       <div ref={playerRef} className="w-full h-full" onClick={togglePlay} />
 
       {loaded && controlsVisible && (
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 p-4">
-          <div className="w-full h-1 bg-gray-700 rounded mb-4 cursor-pointer" onClick={handleProgressClick}>
+        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-6">
+          {/* Progress bar */}
+          <div
+            className="w-full h-1 bg-gray-700 rounded cursor-pointer mb-4"
+            onClick={handleProgressClick}
+          >
             <div
-              className="h-full bg-red-600 rounded"
+              className="h-full bg-red-600 rounded relative"
               style={{ width: `${(time / duration) * 100}%` }}
-            />
+            >
+              <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-red-600 rounded-full" />
+            </div>
           </div>
 
+          {/* Controls */}
           <div className="flex items-center justify-between text-white">
-            <div className="flex items-center space-x-4">
-              <button onClick={togglePlay} className="p-2 bg-white/20 rounded-full">
+            <div className="flex items-center space-x-4 md:space-x-6">
+              <button
+                onClick={togglePlay}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
+              >
                 {playing ? <Pause size={24} /> : <Play size={24} />}
               </button>
 
               <button
-                onMouseDown={() => handleSpeedMouseDown('down')}
-                onMouseUp={handleSpeedMouseUp}
-                onMouseLeave={handleSpeedMouseUp}
-                className="p-2 bg-white/20 rounded-full flex items-center"
+                onClick={() => seek(-10)}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center"
               >
-                <Rewind size={20} />
-                <span className="ml-1 text-sm">{playbackRate}×</span>
-              </button>
-
-              <button onClick={() => seek(-10)} className="p-2 bg-white/20 rounded-full">
                 <SkipBack size={20} />
+                <span className="ml-1 text-base">10</span>
               </button>
 
-              <button onClick={() => seek(10)} className="p-2 bg-white/20 rounded-full">
+              <button
+                onClick={() => seek(10)}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center"
+              >
+                <span className="mr-1 text-base">10</span>
                 <SkipForward size={20} />
               </button>
 
               <button
-                onMouseDown={() => handleSpeedMouseDown('up')}
-                onMouseUp={handleSpeedMouseUp}
-                onMouseLeave={handleSpeedMouseUp}
-                className="p-2 bg-white/20 rounded-full flex items-center"
+                onClick={toggleMute}
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
               >
-                <FastForward size={20} />
-                <span className="ml-1 text-sm">{playbackRate}×</span>
-              </button>
-
-              <button onClick={toggleMute} className="p-2 bg-white/20 rounded-full">
                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
 
-              <span className="ml-4 text-sm">
+              <span className="text-base">
                 {format(time)} / {format(duration)}
               </span>
             </div>
 
-            <button onClick={handleFullscreen} className="p-2 bg-white/20 rounded-full">
+            <button
+              onClick={handleFullscreen}
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition"
+            >
               <Maximize size={20} />
             </button>
           </div>
