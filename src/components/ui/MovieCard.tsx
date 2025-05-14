@@ -36,20 +36,21 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
     }
   }, [movie.videoId]);
 
+  // Netflix-like width sizes
   const sizeClasses = {
-    small: 'w-[200px] sm:w-[220px] md:w-[240px]',
-    medium: 'w-[240px] sm:w-[260px] md:w-[280px]',
-    large: 'w-[280px] sm:w-[300px] md:w-[320px]',
+    small: 'w-[150px] sm:w-[180px]',
+    medium: 'w-[200px] sm:w-[220px]',
+    large: 'w-[240px] sm:w-[260px] md:w-[280px]',
   };
 
   return (
     <div
-      className={`relative ${sizeClasses[size]} transition-transform duration-300 ease-out transform hover:scale-110 hover:z-10`}
+      className={`relative ${sizeClasses[size]} cursor-pointer transition-transform duration-300 ease-in-out transform hover:scale-110 hover:z-20`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
     >
-      <div className="relative aspect-[2/3] rounded-sm overflow-hidden bg-black/40">
+      <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-black/40 shadow-md">
         {/* Poster/Thumbnail */}
         {imageError ? (
           <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-600">
@@ -66,13 +67,13 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
         )}
 
         {/* Hover Overlay */}
-        <div 
-          className={`absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-t from-black via-black/80 to-transparent
+        <div
+          className={`absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-t from-black via-black/80 to-transparent
             ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         >
           {/* Top row */}
           <div className="flex justify-between items-start">
-            <span className="text-xs bg-red-600 px-2 py-1 rounded-sm flex items-center">
+            <span className="text-[11px] bg-red-600 px-1.5 py-0.5 rounded-sm flex items-center">
               <Clock size={12} className="mr-1" />
               {movie.durationInMinutes}m
             </span>
@@ -81,21 +82,23 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
               className="text-white hover:text-red-500 transition-colors"
               aria-label={isBookmarked ? 'Remove from bookmarks' : 'Add to bookmarks'}
             >
-              {isBookmarked ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
+              {isBookmarked ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
             </button>
           </div>
 
           {/* Bottom content */}
           <div>
             {movie.imdbRating && (
-              <div className="flex items-center mb-2 text-yellow-400">
-                <Star size={16} className="mr-1" />
+              <div className="flex items-center mb-2 text-yellow-400 text-xs">
+                <Star size={14} className="mr-1" />
                 <span className="font-semibold">{movie.imdbRating}</span>
               </div>
             )}
-            <button className="w-full flex items-center justify-center bg-white hover:bg-white/90 text-black font-semibold 
-              py-2 px-4 rounded-sm transition-colors">
-              <Play size={20} className="mr-2" />
+            <button
+              className="w-full flex items-center justify-center bg-white hover:bg-white/90 text-black font-semibold 
+              py-1.5 px-3 text-sm rounded-sm transition"
+            >
+              <Play size={16} className="mr-2" />
               Play
             </button>
           </div>
@@ -104,7 +107,7 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, size = 'large' }) => {
 
       {/* Title & Year */}
       <div className="mt-2 px-1">
-        <h3 className="text-sm font-medium text-gray-200 line-clamp-1">{movie.title}</h3>
+        <h3 className="text-sm sm:text-base font-semibold text-white line-clamp-1">{movie.title}</h3>
         {movie.year && <p className="text-xs text-gray-400">{movie.year}</p>}
       </div>
     </div>
