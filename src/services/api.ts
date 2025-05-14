@@ -13,7 +13,8 @@ const YOUTUBE_API_KEYS = [
 'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
 'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
 'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE',
-'AIzaSyDfP0C-J3_8k_ynb03RIc-uSUiB_QoDkdI'
+'AIzaSyDfP0C-J3_8k_ynb03RIc-uSUiB_QoDkdI',
+'AIzaSyCS1H46t92_gfqpyQiUWjWyH5d2mvg12E0'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
