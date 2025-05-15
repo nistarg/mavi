@@ -4,7 +4,10 @@ import { Clock, Star, Award, Film, User, Bookmark, BookmarkCheck } from 'lucide-
 import VideoPlayer from '../components/player/VideoPlayer';
 import MovieCarousel from '../components/ui/MovieCarousel';
 import { Movie } from '../types';
-import { enrichMovieWithMetadata, getTrendingMovies, getSimilarMovies } from '../services/api';
+import {
+  enrichMovieWithMetadata,
+  getMoviesByActor
+} from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 const MoviePage: React.FC = () => {
@@ -14,105 +17,74 @@ const MoviePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addToBookmarks, removeFromBookmarks, isMovieBookmarked, bookmarks } = useAppContext();
-  
+
   const isBookmarked = movie ? isMovieBookmarked(movie.id) : false;
-  
+
   useEffect(() => {
-    const fetchMovie = async () => {
+    const fetchMovieAndRecommendations = async () => {
       try {
         setLoading(true);
-        
-        let fetchedMovie: Movie | undefined;
-        const bookmarkedMovie = bookmarks.find(m => m.id === id);
-        
-        if (bookmarkedMovie) {
-          fetchedMovie = bookmarkedMovie;
-        } else {
-          const basicMovie: Movie = {
-            id: id || '',
-            videoId: id || '',
-            title: '',
-            thumbnail: '',
-            channelTitle: '',
-            publishedAt: '',
-            duration: '',
-            durationInMinutes: 0,
-            viewCount: '',
-          };
-          
-          // First try to find the movie in trending list
-          const trendingResult = await getTrendingMovies();
-          if (trendingResult.data) {
-            const found = trendingResult.data.find(m => m.id === id);
-            fetchedMovie = found || basicMovie;
-          } else {
-            fetchedMovie = basicMovie;
-          }
-        }
-        
-        // Enrich metadata for display
-        const enriched = await enrichMovieWithMetadata(fetchedMovie!);
-        setMovie(enriched);
 
-        // Fetch similar movies based on metadata (genre, keywords)
-        const similarResult = await getSimilarMovies(enriched.id);
-        if (similarResult.data) {
-          setRelatedMovies(similarResult.data);
-        } else {
-          // Fallback to trending if no similar found
-          const fallback = await getTrendingMovies();
-          setRelatedMovies(fallback.data || []);
+        // 1) Load the main movie either from bookmarks or via metadata
+        let base: Movie | undefined = bookmarks.find(m => m.id === id);
+        if (!base && id) {
+          base = { id, videoId: id, title: '', thumbnail: '', channelTitle: '', publishedAt: '', duration: '', durationInMinutes: 0, viewCount: '' };
+          base = await enrichMovieWithMetadata(base);
         }
+        if (base) setMovie(base);
+
+        // 2) For “You Might Also Like” — fetch Ranbir Kapoor & Govinda movies
+        const [ranbirRes, govindaRes] = await Promise.all([
+          getMoviesByActor('Ranbir Kapoor'),
+          getMoviesByActor('Govinda'),
+        ]);
+
+        // Merge, dedupe by ID, limit to 10
+        const combined = [...ranbirRes.data, ...govindaRes.data];
+        const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
+
+        setRelatedMovies(unique.slice(0, 10));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-        console.error('Error fetching movie or related:', err);
+        console.error(err);
+        setError(err instanceof Error ? err.message : 'Something went wrong');
       } finally {
         setLoading(false);
       }
     };
-    
-    if (id) {
-      fetchMovie();
-    }
+
+    if (id) fetchMovieAndRecommendations();
   }, [id, bookmarks]);
-  
+
   const handleBookmark = () => {
     if (!movie) return;
-    
-    if (isBookmarked) {
-      removeFromBookmarks(movie.id);
-    } else {
-      addToBookmarks(movie);
-    }
+    isBookmarked ? removeFromBookmarks(movie.id) : addToBookmarks(movie);
   };
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="flex flex-col items-center text-white">
-          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
           <p className="mt-4 text-xl">Loading movie...</p>
         </div>
       </div>
     );
   }
-  
+
   if (error || !movie) {
     return (
       <div className="container mx-auto px-4 py-16 text-center text-white">
         <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
-        <p className="mb-4">
-          {error || 'Movie not found. It might have been removed from YouTube.'}
-        </p>
+        <p>{error || 'Movie not found.'}</p>
       </div>
     );
   }
-  
+
   return (
     <div className="bg-black text-white">
-      {/* Hero Section */}
+      {/* Hero */}
       <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-black opacity-60"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black opacity-60" />
         <img
           className="w-full h-[200px] md:h-[250px] object-cover"
           src={movie.thumbnail || 'https://via.placeholder.com/1920x400'}
@@ -137,8 +109,8 @@ const MoviePage: React.FC = () => {
             <button
               onClick={handleBookmark}
               className={`flex items-center gap-1 px-3 py-1 rounded-full border ${
-                isBookmarked 
-                  ? 'border-red-500 text-red-500' 
+                isBookmarked
+                  ? 'border-red-500 text-red-500'
                   : 'border-gray-700 text-gray-400 hover:border-gray-500'
               } transition`}
             >
@@ -148,84 +120,49 @@ const MoviePage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
+      {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-8">
-        {/* Video Player and Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2">
             <div className="relative aspect-video w-full mb-4">
-              <VideoPlayer movie={movie} autoplay={true} />
+              <VideoPlayer movie={movie} autoplay />
             </div>
+            {movie.plot && <p className="text-gray-300">{movie.plot}</p>}
           </div>
-          
           <div>
             <div className="bg-gray-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Movie Details</h2>
-              {movie.plot && (
-                <div className="mb-6">
-                  <p className="text-gray-300">{movie.plot}</p>
-                </div>
+              {['director','actors','genre','awards'].map((field) =>
+                (movie as any)[field] ? (
+                  <div className="flex items-start mb-4" key={field}>
+                    {{ director: <User/>, actors: <User/>, genre: <Film/>, awards: <Award/> }[field]}
+                    <div className="ml-3">
+                      <p className="text-gray-400 text-sm">{field.charAt(0).toUpperCase() + field.slice(1)}</p>
+                      <p className="text-white">{(movie as any)[field]}</p>
+                    </div>
+                  </div>
+                ) : null
               )}
-              <div className="space-y-4">
-                {movie.director && (
-                  <div className="flex items-start">
-                    <User className="text-red-500 mr-3 mt-0.5" size={18} />
-                    <div>
-                      <p className="text-gray-400 text-sm">Director</p>
-                      <p className="text-white">{movie.director}</p>
-                    </div>
-                  </div>
-                )}
-                {movie.actors && (
-                  <div className="flex items-start">
-                    <User className="text-red-500 mr-3 mt-0.5" size={18} />
-                    <div>
-                      <p className="text-gray-400 text-sm">Cast</p>
-                      <p className="text-white">{movie.actors}</p>
-                    </div>
-                  </div>
-                )}
-                {movie.genre && (
-                  <div className="flex items-start">
-                    <Film className="text-red-500 mr-3 mt-0.5" size={18} />
-                    <div>
-                      <p className="text-gray-400 text-sm">Genre</p>
-                      <p className="text-white">{movie.genre}</p>
-                    </div>
-                  </div>
-                )}
-                {movie.awards && movie.awards !== 'N/A' && (
-                  <div className="flex items-start">
-                    <Award className="text-red-500 mr-3 mt-0.5" size={18} />
-                    <div>
-                      <p className="text-gray-400 text-sm">Awards</p>
-                      <p className="text-white">{movie.awards}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
-        
-        {/* You Might Also Like (Similar Movies) */}
+
+        {/* You Might Also Like */}
         <div className="mb-12">
-          <MovieCarousel 
-            title="You Might Also Like" 
-            movies={relatedMovies.filter(m => m.id !== movie.id).slice(0, 10)} 
-            size="large" 
-            className="py-12" 
+          <MovieCarousel
+            title="You Might Also Like: "
+            movies={relatedMovies}
+            size="large"
+            className="py-12"
           />
         </div>
-        
-        {/* Legal Disclaimer */}
+
+        {/* Disclaimer */}
         <div className="bg-gray-900 rounded-lg p-6 mb-12">
           <h2 className="text-xl font-semibold mb-4">Legal Disclaimer</h2>
           <p className="text-gray-300 text-sm">
-            This content is streamed directly from YouTube and is publicly available there. 
-            MAVI does not host, upload, or own any video content. All rights belong to their 
-            respective owners. If you are the copyright owner of any content displayed here 
-            and would like it removed, please contact YouTube directly.
+            This content is streamed directly from YouTube. All rights belong to their respective owners.
           </p>
         </div>
       </div>
@@ -234,4 +171,3 @@ const MoviePage: React.FC = () => {
 };
 
 export default MoviePage;
-
