@@ -39,11 +39,17 @@ const HomePage: React.FC = () => {
     fetchSuggestedMovies();
   }, []);
 
+  // ✅ Inject ad script
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "//pl26616785.profitableratecpm.com/d2/45/77/d245771fb295bc02b87a1f76c3537c55.js";
-    script.async = true;
-    document.getElementById('sidebar-ad')?.appendChild(script);
+    const existingScript = document.querySelector("script[src*='profitableratecpm']");
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.src = '//pl26616785.profitableratecpm.com/d2/45/77/d245771fb295bc02b87a1f76c3537c55.js';
+      script.type = 'text/javascript';
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script); // ✅ append to body directly
+    }
   }, []);
 
   if (loading) {
@@ -83,14 +89,15 @@ const HomePage: React.FC = () => {
         )}
       </div>
 
-      {/* Sidebar Ad */}
-      <div
-        id="sidebar-ad"
-        className="w-28 sm:w-32 md:w-40 p-2 mt-8"
-      />
+      {/* Sidebar container */}
+      <div className="w-28 sm:w-32 md:w-40 p-2 mt-8">
+        {/* Just a placeholder so layout is preserved */}
+        <div className="h-full bg-transparent text-xs text-gray-400">
+          Ads loading...
+        </div>
+      </div>
     </div>
   );
 };
 
 export default HomePage;
-
