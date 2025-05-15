@@ -284,6 +284,9 @@ export async function advancedSearch(params: SearchParams): Promise<ApiResponse<
   return res;
 }
 
+/**
+ * Fetches movies similar to the given movie ID (via YouTube related videos or OMDb fallback).
+ */
 export async function getSimilarMovies(id: string): Promise<ApiResponse<Movie[]>> {
   const cacheKey = `similar:${normKey(id)}`;
   const cached = getFromCache(cacheKey);
@@ -303,7 +306,7 @@ export async function getSimilarMovies(id: string): Promise<ApiResponse<Movie[]>
         );
         const vidsJson: any = await vids.json();
         const movies = await Promise.all(
-          vidsJson.items.map((v: any) => ({
+          vidsJson.items.map(async (v: any) => ({
             id: v.id,
             videoId: v.id,
             title: extractMovieTitle(v.snippet.title),
@@ -331,4 +334,3 @@ export async function getSimilarMovies(id: string): Promise<ApiResponse<Movie[]>
   setInCache(cacheKey, fallback);
   return fallback;
 }
-
