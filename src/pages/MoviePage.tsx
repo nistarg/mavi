@@ -4,7 +4,7 @@ import { Clock, Star, Award, Film, User, Bookmark, BookmarkCheck } from 'lucide-
 import VideoPlayer from '../components/player/VideoPlayer';
 import MovieCarousel from '../components/ui/MovieCarousel';
 import { Movie } from '../types';
-import { enrichMovieWithMetadata, getTrendingMovies } from '../services/api';
+import { enrichMovieWithMetadata, getTrendingMovies, getSimilarMovies } from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 const MoviePage: React.FC = () => {
@@ -22,10 +22,11 @@ const MoviePage: React.FC = () => {
       try {
         setLoading(true);
         
+        let fetchedMovie: Movie | undefined;
         const bookmarkedMovie = bookmarks.find(m => m.id === id);
         
         if (bookmarkedMovie) {
-          setMovie(bookmarkedMovie);
+          fetchedMovie = bookmarkedMovie;
         } else {
           const basicMovie: Movie = {
             id: id || '',
@@ -39,24 +40,32 @@ const MoviePage: React.FC = () => {
             viewCount: '',
           };
           
+          // First try to find the movie in trending list
           const trendingResult = await getTrendingMovies();
           if (trendingResult.data) {
-            setRelatedMovies(trendingResult.data);
-            
-            const foundMovie = trendingResult.data.find(m => m.id === id);
-            
-            if (foundMovie) {
-              const enrichedMovie = await enrichMovieWithMetadata(foundMovie);
-              setMovie(enrichedMovie);
-            } else {
-              const enrichedMovie = await enrichMovieWithMetadata(basicMovie);
-              setMovie(enrichedMovie);
-            }
+            const found = trendingResult.data.find(m => m.id === id);
+            fetchedMovie = found || basicMovie;
+          } else {
+            fetchedMovie = basicMovie;
           }
+        }
+        
+        // Enrich metadata for display
+        const enriched = await enrichMovieWithMetadata(fetchedMovie!);
+        setMovie(enriched);
+
+        // Fetch similar movies based on metadata (genre, keywords)
+        const similarResult = await getSimilarMovies(enriched.id);
+        if (similarResult.data) {
+          setRelatedMovies(similarResult.data);
+        } else {
+          // Fallback to trending if no similar found
+          const fallback = await getTrendingMovies();
+          setRelatedMovies(fallback.data || []);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-        console.error('Error fetching movie:', err);
+        console.error('Error fetching movie or related:', err);
       } finally {
         setLoading(false);
       }
@@ -105,7 +114,7 @@ const MoviePage: React.FC = () => {
       <div className="relative">
         <div className="absolute inset-0 bg-gradient-to-b from-black opacity-60"></div>
         <img
-          className="w-full h-[200px] md:h-[250px] object-cover" // Adjusted height
+          className="w-full h-[200px] md:h-[250px] object-cover"
           src={movie.thumbnail || 'https://via.placeholder.com/1920x400'}
           alt={movie.title}
         />
@@ -113,21 +122,18 @@ const MoviePage: React.FC = () => {
           <h1 className="text-4xl md:text-5xl font-bold mb-4">{movie.title}</h1>
           <div className="flex flex-wrap items-center gap-4 text-gray-300 mb-6">
             {movie.year && <div>{movie.year}</div>}
-            
             {movie.durationInMinutes && (
               <div className="flex items-center">
                 <Clock size={16} className="mr-1 text-gray-400" />
                 <span>{movie.durationInMinutes} min</span>
               </div>
             )}
-            
             {movie.imdbRating && (
               <div className="flex items-center text-yellow-400">
                 <Star size={16} className="mr-1" />
                 <span>{movie.imdbRating}</span>
               </div>
             )}
-            
             <button
               onClick={handleBookmark}
               className={`flex items-center gap-1 px-3 py-1 rounded-full border ${
@@ -147,7 +153,6 @@ const MoviePage: React.FC = () => {
         {/* Video Player and Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2">
-            {/* Make the video player larger by removing unnecessary padding */}
             <div className="relative aspect-video w-full mb-4">
               <VideoPlayer movie={movie} autoplay={true} />
             </div>
@@ -156,13 +161,11 @@ const MoviePage: React.FC = () => {
           <div>
             <div className="bg-gray-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Movie Details</h2>
-              
               {movie.plot && (
                 <div className="mb-6">
                   <p className="text-gray-300">{movie.plot}</p>
                 </div>
               )}
-              
               <div className="space-y-4">
                 {movie.director && (
                   <div className="flex items-start">
@@ -173,7 +176,6 @@ const MoviePage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
                 {movie.actors && (
                   <div className="flex items-start">
                     <User className="text-red-500 mr-3 mt-0.5" size={18} />
@@ -183,7 +185,6 @@ const MoviePage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
                 {movie.genre && (
                   <div className="flex items-start">
                     <Film className="text-red-500 mr-3 mt-0.5" size={18} />
@@ -193,7 +194,6 @@ const MoviePage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
                 {movie.awards && movie.awards !== 'N/A' && (
                   <div className="flex items-start">
                     <Award className="text-red-500 mr-3 mt-0.5" size={18} />
@@ -208,13 +208,13 @@ const MoviePage: React.FC = () => {
           </div>
         </div>
         
-        {/* Related Movies */}
+        {/* You Might Also Like (Similar Movies) */}
         <div className="mb-12">
           <MovieCarousel 
             title="You Might Also Like" 
             movies={relatedMovies.filter(m => m.id !== movie.id).slice(0, 10)} 
-            size="large" // Make carousel larger
-            className="py-12" // Add padding to make it bigger visually
+            size="large" 
+            className="py-12" 
           />
         </div>
         
@@ -234,3 +234,4 @@ const MoviePage: React.FC = () => {
 };
 
 export default MoviePage;
+
