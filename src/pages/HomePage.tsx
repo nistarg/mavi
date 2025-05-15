@@ -20,7 +20,6 @@ const HomePage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch suggested movies
       const suggestedResults = await Promise.all(
         SUGGESTED_MOVIES.map(title => searchMovies(title))
       );
@@ -40,9 +39,12 @@ const HomePage: React.FC = () => {
     fetchSuggestedMovies();
   }, []);
 
-  const handleRetry = () => {
-    fetchSuggestedMovies();
-  };
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "//pl26616785.profitableratecpm.com/d2/45/77/d245771fb295bc02b87a1f76c3537c55.js";
+    script.async = true;
+    document.getElementById('sidebar-ad')?.appendChild(script);
+  }, []);
 
   if (loading) {
     return (
@@ -59,7 +61,7 @@ const HomePage: React.FC = () => {
           <h2 className="text-4xl font-semibold mb-4">Something went wrong</h2>
           <p className="mb-6">{error}</p>
           <button
-            onClick={handleRetry}
+            onClick={fetchSuggestedMovies}
             className="px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition"
           >
             Try Again
@@ -70,19 +72,25 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="bg-black text-white overflow-x-hidden">
-      {/* Suggested Movies Section */}
-      {suggestedMovies.length > 0 && (
-        <div className="bg-black py-8 px-4">
-          <h2 className="text-2xl font-semibold mb-4">Recommended for You</h2>
-          <MovieCarousel
-            movies={suggestedMovies}
-            size="large"
-          />
-        </div>
-      )}
+    <div className="bg-black text-white flex">
+      {/* Main content */}
+      <div className="flex-1 px-4 py-8">
+        {suggestedMovies.length > 0 && (
+          <>
+            <h2 className="text-2xl font-semibold mb-4">Recommended for You</h2>
+            <MovieCarousel movies={suggestedMovies} size="large" />
+          </>
+        )}
+      </div>
+
+      {/* Sidebar Ad */}
+      <div
+        id="sidebar-ad"
+        className="w-28 sm:w-32 md:w-40 p-2 mt-8"
+      />
     </div>
   );
 };
 
 export default HomePage;
+
