@@ -1,27 +1,28 @@
 import { Movie, ApiResponse, SearchParams } from '../types';
 import pLimit from 'p-limit';
 
+// All possible YouTube API keys (filter out any undefined from .env)
 const YOUTUBE_API_KEYS = [
   import.meta.env.VITE_YOUTUBE_API_KEY_1,
   import.meta.env.VITE_YOUTUBE_API_KEY_2,
   import.meta.env.VITE_YOUTUBE_API_KEY_3,
-'AIzaSyBBhGS60rXPxSKf_kjrzW4AuZIMwF3mk3E',
-'AIzaSyC_2QM86c1ZDwrFq5TrDHYw91wuHAAXtu0',
-'AIzaSyDxrMr6aBkVCb91-Kp5ltsumOIbzK6bzN0',
-'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
-'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
-'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
-'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
-'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE',
-'AIzaSyDfP0C-J3_8k_ynb03RIc-uSUiB_QoDkdI',
-'AIzaSyCS1H46t92_gfqpyQiUWjWyH5d2mvg12E0',
-'AIzaSyBbqxhIKI0LlUEsDl0ujZnthVoMVwpRgiU',
-'AIzaSyD0-vpOkWqckTOBR3_AKVMo9iM-qHntjFo',
-'AIzaSyDaYY6Rm2OGnrHae3TmrLcF4KZsKsQ5sDc',
-'AIzaSyAVrjriCZgnN2voGLql5CBAnv18tQ13JIU',
-'AIzaSyAjTFWTp0ddAZ6ZU6tctYeyLMh-YVZyHio',
-'AIzaSyDtjOFaEyO2wsFy2v2adGFM_8NajSW1rtI',
-'AIzaSyAnz1lmkI7azh6pxqZlp6CXmaxsZ76lXDI'
+  'AIzaSyBBhGS60rXPxSKf_kjrzW4AuZIMwF3mk3E',
+  'AIzaSyC_2QM86c1ZDwrFq5TrDHYw91wuHAAXtu0',
+  'AIzaSyDxrMr6aBkVCb91-Kp5ltsumOIbzK6bzN0',
+  'AIzaSyDh1B1t8m3bN5fp_FbJ_PCfLbzcImNris0',
+  'AIzaSyBkId3Uc_W05YzZO8ztv8yZMuKWb_CYpJw',
+  'AIzaSyCvI9LPFjvOe3wOYcsGqhkK-kTJWJSBcKA',
+  'AIzaSyDlqTNAKMjsfukzMUYZHRXshPgMYdMTXV4',
+  'AIzaSyA9A2t73XXr7Ra9q1SpYcPDvHTozJMwmpE',
+  'AIzaSyDfP0C-J3_8k_ynb03RIc-uSUiB_QoDkdI',
+  'AIzaSyCS1H46t92_gfqpyQiUWjWyH5d2mvg12E0',
+  'AIzaSyBbqxhIKI0LlUEsDl0ujZnthVoMVwpRgiU',
+  'AIzaSyD0-vpOkWqckTOBR3_AKVMo9M-qHntjFo',
+  'AIzaSyDaYY6Rm2OGnrHae3TmrLcF4KZsKsQ5sDc',
+  'AIzaSyAVrjriCZgnN2voGLql5CBAnv18tQ13JIU',
+  'AIzaSyAjTFWTp0ddAZ6ZU6tctYeyLMh-YVZyHio',
+  'AIzaSyDtjOFaEyO2wsFy2v2adGFM_8NajSW1rtI',
+  'AIzaSyAnz1lmkI7azh6pxqZlp6CXmaxsZ76lXDI'
 ].filter(Boolean);
 
 let currentApiKeyIndex = 0;
@@ -140,7 +141,6 @@ export async function enrichMovieWithMetadata(movie: Movie): Promise<Movie> {
     
     if (omdb.Response !== 'True') return movie;
 
-    // Get HD thumbnail if available
     const thumbnail = movie.videoId ? await getHDThumbnail(movie.videoId) : movie.thumbnail;
 
     const enriched: Movie = {
@@ -159,7 +159,7 @@ export async function enrichMovieWithMetadata(movie: Movie): Promise<Movie> {
       country: omdb.Country,
       awards: omdb.Awards,
       poster: omdb.Poster !== 'N/A' ? omdb.Poster : thumbnail,
-      thumbnail: thumbnail,
+      thumbnail,
       ratings: omdb.Ratings,
       imdbRating: omdb.imdbRating,
       imdbID: omdb.imdbID,
@@ -174,116 +174,67 @@ export async function enrichMovieWithMetadata(movie: Movie): Promise<Movie> {
   }
 }
 
-export async function searchMovies(searchTerm: string): Promise<ApiResponse<Movie[]>> {
-  const cacheKey = `search:${normKey(searchTerm)}`;
+// Existing search & trending functions...
+
+// <-- Insert at the bottom: getSimilarMovies -->
+
+/**
+ * Fetches movies similar to the given movie ID (e.g. via related YouTube videos or OMDb keywords).
+ */
+export async function getSimilarMovies(id: string): Promise<ApiResponse<Movie[]>> {
+  const cacheKey = `similar:${normKey(id)}`;
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
-  let retries = 0;
-  while (retries < MAX_RETRIES) {
-    try {
-      const apiKey = await getYoutubeApiKey();
-      const sr = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoDuration=long&maxResults=10&q=${encodeURIComponent(searchTerm + ' full movie')}&key=${apiKey}`
-      );
-      const srJson: any = await sr.json();
-      if (srJson.error) throw new Error(srJson.error.message);
-
-      const videoIds = srJson.items
-        .map((i: any) => i.id.videoId)
-        .filter(Boolean)
-        .join(',');
-      
-      if (!videoIds) return { data: [], isLoading: false };
-
-      const dr = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${apiKey}`
-      );
-      const drJson: any = await dr.json();
-      if (drJson.error) throw new Error(drJson.error.message);
-
-      const limit = pLimit(5);
-      const movies = await Promise.all(
-        drJson.items
-          .filter((v: any) => {
-            const mins = convertToMin(v.contentDetails.duration);
-            const titleLc = v.snippet.title.toLowerCase();
-            return mins >= 60 && !titleLc.includes('trailer') && !titleLc.includes('teaser');
-          })
-          .map((v: any) =>
-            limit(async () => {
-              const thumbnail = await getHDThumbnail(v.id);
-              return enrichMovieWithMetadata({
-                id: v.id,
-                videoId: v.id,
-                title: extractMovieTitle(v.snippet.title),
-                thumbnail,
-                channelTitle: v.snippet.channelTitle,
-                publishedAt: v.snippet.publishedAt,
-                duration: v.contentDetails.duration,
-                durationInMinutes: convertToMin(v.contentDetails.duration),
-                viewCount: v.statistics.viewCount || '0',
-              });
-            })
-          )
-      );
-
-      const result: ApiResponse<Movie[]> = { data: movies, isLoading: false };
-      setInCache(cacheKey, result);
-      return result;
-    } catch (err) {
-      console.error('Search error:', err);
-      retries++;
-      currentApiKeyIndex = (currentApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
-      await new Promise((r) => setTimeout(r, RETRY_DELAY));
+  try {
+    // Try YouTube related videos
+    const apiKey = await getYoutubeApiKey();
+    const rel = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId=${id}&type=video&maxResults=10&key=${apiKey}`
+    );
+    const relJson: any = await rel.json();
+    if (!relJson.error && Array.isArray(relJson.items)) {
+      const ids = relJson.items.map((i: any) => i.id.videoId).filter(Boolean).join(',');
+      if (ids) {
+        const vids = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet,statistics&id=${ids}&key=${apiKey}`
+        );
+        const vidsJson: any = await vids.json();
+        const movies = await Promise.all(
+          vidsJson.items.map(async (v: any) => ({
+            id: v.id,
+            videoId: v.id,
+            title: extractMovieTitle(v.snippet.title),
+            thumbnail: await getHDThumbnail(v.id),
+            channelTitle: v.snippet.channelTitle,
+            publishedAt: v.snippet.publishedAt,
+            duration: v.contentDetails.duration,
+            durationInMinutes: convertToMin(v.contentDetails.duration),
+            viewCount: v.statistics.viewCount || '0',
+          }))
+        );
+        const result = { data: movies, isLoading: false };
+        setInCache(cacheKey, result);\тьлад анд return result;
+      }
     }
+  } catch (err) {
+    console.error('Similar movies error:', err);
   }
 
-  // Fallback to OMDb if YouTube search fails
-  console.log('Falling back to OMDb search');
-  const fallback = await fallbackSearchOMDb(searchTerm);
-  setInCache(cacheKey, fallback);
+  // Fallback to OMDb-based keyword search
+  const enrichedMovie = await enrichMovieWithMetadata({ id, videoId: '', title: '', thumbnail: '', channelTitle: '', publishedAt: '', duration: '', durationInMinutes: 0, viewCount: '' });
+  const keywords = enrichedMovie.genre?.split(',')[0] || enrichedMovie.title;
+  const fallback = await fallbackSearchOMDb(keywords);
+  setInCache(`similar:${normKey(id)}`, fallback);
   return fallback;
 }
 
-export const getTrendingMovies = async (): Promise<ApiResponse<Movie[]>> => {
-  const trending = await searchMovies('latest bollywood movies 2024');
-  if (trending.data && trending.data.length > 0) {
-    return trending;
-  }
-  // Fallback to specific movies if trending search fails
-  const fallbackMovies = [
-    'Yeh Jawaani Hai Deewani full movie',
-    'Zindagi Na Milegi Dobara full movie',
-    'Golmaal full movie',
-    'Dil Chahta Hai full movie',
-    '3 Idiots full movie',
-    'Chennai Express full movie'
-  ];
-  
-  const results = await Promise.all(fallbackMovies.map(title => searchMovies(title)));
-  const movies = results
-    .map(result => result.data?.[0])
-    .filter((movie): movie is Movie => !!movie);
-  
-  return { data: movies, isLoading: false };
+// Finally, ensure it's exported in the module
+export {
+  getTrendingMovies,
+  getSimilarMovies,
+  getMoviesByActor,
+  getMoviesByGenre,
+  advancedSearch
 };
 
-export const getMoviesByActor = (actor: string): Promise<ApiResponse<Movie[]>> =>
-  searchMovies(`${actor} best movies`);
-
-export const getMoviesByGenre = (genre: string): Promise<ApiResponse<Movie[]>> =>
-  searchMovies(`best ${genre} bollywood movies`);
-
-export async function advancedSearch(params: SearchParams): Promise<ApiResponse<Movie[]>> {
-  let q = params.query;
-  [params.actor, params.genre, params.language, params.year]
-    .filter(Boolean)
-    .forEach(x => (q += ' ' + x));
-  
-  const res = await searchMovies(q);
-  if (res.data && params.duration) {
-    res.data = res.data.filter(m => m.durationInMinutes >= params.duration);
-  }
-  return res;
-}
