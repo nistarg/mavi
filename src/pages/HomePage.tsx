@@ -8,8 +8,8 @@ const SUGGESTED_MOVIES = [
   'ajab prem ki ghazab kahani full movie',
   'jab we met full movie',
   'phir hera pheri full movie',
-  'golmaal full movie',
-  'zindagi na milegi doobaara full movie'
+  'dhamaal full movie'
+
   
 ];
 
