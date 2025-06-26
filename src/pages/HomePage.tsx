@@ -6,9 +6,8 @@ import MovieCarousel from '../components/ui/MovieCarousel';
 const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
   'ajab prem ki ghazab kahani full movie',
-  'jab we met full movie',
   'phir hera pheri full movie',
-  'dhamaal full movie'
+  'jab we met full movie'
 
   
 ];
