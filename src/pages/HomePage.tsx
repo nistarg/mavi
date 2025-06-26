@@ -6,7 +6,7 @@ import MovieCarousel from '../components/ui/MovieCarousel';
 const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
   'ajab prem ki ghazab kahani full movie',
-  'https://youtu.be/fqAntB1HKvo?si=VTtI8iDieP9-gWQD',
+  'Zindagi Na Milegi Dobara 2011 Full Hindi Movie',
   'jab we met full movie'
 
   
