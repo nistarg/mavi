@@ -7,7 +7,7 @@ const SUGGESTED_MOVIES = [
   'Yeh Jawaani Hai Deewani full movie',
   'ajab prem ki ghazab kahani full movie',
   'jab we met full movie',
-  'jagga jasoos full movie'
+  'hera pheri full movie'
 ];
 
 const HomePage: React.FC = () => {
