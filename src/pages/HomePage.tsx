@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Movie } from '../types';
 import { searchMovies } from '../services/api';
--import HeroBanner from '../components/ui/HeroBanner';
-+import HeroSection from '../components/ui/HeroSection';
+import HeroSection from '../components/ui/HeroSection';
 import SectionRow from '../components/ui/SectionRow';
 import Loader from '../components/ui/Loader';
 import ErrorState from '../components/ui/ErrorState';
