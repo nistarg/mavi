@@ -1,82 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import { Movie } from '../types';
 import { searchMovies } from '../services/api';
-import MovieCarousel from '../components/ui/MovieCarousel';
+import HeroBanner from '../components/ui/HeroBanner';
+import SectionRow from '../components/ui/SectionRow';
+import Loader from '../components/ui/Loader';
+import ErrorState from '../components/ui/ErrorState';
 
-const SUGGESTED_MOVIES = [
-  'Yeh Jawaani Hai Deewani full movie',
-  'ajab prem ki ghazab kahani full movie',
-  'phir hera pheri full movie',
-  'jab we met full movie'
-
-  
+const SUGGESTED = [
+  'Yeh Jawaani Hai Deewani',
+  'Ajab Prem Ki Ghazab Kahani',
+  'Phir Hera Pheri',
+  'Jab We Met'
 ];
 
 const HomePage: React.FC = () => {
-  const [suggestedMovies, setSuggestedMovies] = useState<Movie[]>([]);
+  const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSuggestedMovies = async () => {
+  const fetchMovies = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-
-      const suggestedResults = await Promise.all(
-        SUGGESTED_MOVIES.map(title => searchMovies(title))
-      );
-      const suggested = suggestedResults
-        .map(result => result.data?.[0])
-        .filter((movie): movie is Movie => !!movie);
-      setSuggestedMovies(suggested);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
+      const results = await Promise.all(SUGGESTED.map(title => searchMovies(title)));
+      const list = results.map(r => r.data?.[0]).filter((m): m is Movie => !!m);
+      setMovies(list);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchSuggestedMovies();
-  }, []);
+  useEffect(() => { fetchMovies(); }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-white">
-        <div className="text-center p-8">
-          <h2 className="text-4xl font-semibold mb-4">Something went wrong</h2>
-          <p className="mb-6">{error}</p>
-          <button
-            onClick={fetchSuggestedMovies}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <Loader />;
+  if (error) return <ErrorState retry={fetchMovies} message={error} />;
 
   return (
-    <div className="bg-black text-white px-4 py-8">
-      {suggestedMovies.length > 0 && (
-        <>
-          <h2 className="text-2xl font-semibold mb-4">Recommended for You</h2>
-          <MovieCarousel movies={suggestedMovies} size="large" />
-        </>
-      )}
-    </div>
+    <main className="bg-zinc-900 text-white">
+      <HeroBanner movie={movies[0]} />
+      <div className="pt-8">
+        <SectionRow title="Recommended for You" movies={movies} size="large" />
+        {/* Add more sections here */}
+      </div>
+    </main>
   );
 };
 
 export default HomePage;
+
 
