@@ -1,6 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none !important; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
 
 :root {
   --primary: #E50914;
